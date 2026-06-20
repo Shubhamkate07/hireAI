@@ -25,11 +25,16 @@ const findRefreshToken = async (
 const deleteRefreshToken = async (
   tokenHash
 ) => {
-  await pool.query(
+
+  const [result] = await pool.query(
     `DELETE FROM refresh_tokens
      WHERE token_hash=?`,
     [tokenHash]
   );
+
+  console.log(result);
+
+  return result;
 };
 
 const deleteAllUserTokens = async (

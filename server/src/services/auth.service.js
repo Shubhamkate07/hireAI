@@ -2,6 +2,7 @@ const dotenv= require('dotenv')
 dotenv.config();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
+const crypto = require("crypto");
 
 const ApiError = require('../utils/ApiError')
 const userModel = require('../models/user.model')
@@ -110,8 +111,7 @@ const loginUser = async (email, password) => {
     );
 
 
-    const refreshToken =
-    jwt.sign(
+    const refreshToken = jwt.sign(
       {
         id: user.id
       },
@@ -122,11 +122,11 @@ const loginUser = async (email, password) => {
       }
     );
 
-const tokenHash =
-    await bcrypt.hash(
-      refreshToken,
-      10
-    );
+   const tokenHash =
+   crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
 
   const expiresAt =
     new Date(
@@ -150,8 +150,100 @@ const tokenHash =
 
 }
 
+const refreshAccessToken = async (refreshToken) => {
+
+   if(!refreshToken){
+      throw new ApiError(
+         401,
+         "Refresh token required"
+      );
+   }
+
+   const tokenHash =
+      crypto
+         .createHash("sha256")
+         .update(refreshToken)
+         .digest("hex");
+
+   const storedToken =
+      await refreshTokenModel.findRefreshToken(
+         tokenHash
+      );
+
+   if(!storedToken){
+      throw new ApiError(
+         401,
+         "Invalid refresh token"
+      );
+   }
+
+   if(
+      new Date(storedToken.expires_at)
+      < new Date()
+   ){
+
+      await refreshTokenModel.deleteRefreshToken(
+         tokenHash
+      );
+
+      throw new ApiError(
+         401,
+         "Refresh token expired"
+      );
+
+   }
+
+   const decoded =
+      jwt.verify(
+         refreshToken,
+         process.env.REFRESH_TOKEN_SECRET
+      );
+
+   const accessToken =
+      jwt.sign(
+         {
+            id: decoded.id
+         },
+         process.env.JWT_SECRET,
+         {
+            expiresIn:
+             process.env.JWT_EXPIRES_IN
+         }
+      );
+
+   return {
+      accessToken
+   };
+
+};
+
+const logoutUser = async (refreshToken)=>{
+
+   if(!refreshToken){
+      throw new ApiError(
+         401,
+         "Refresh token required"
+      );
+   }
+
+   const tokenHash =
+      crypto
+         .createHash("sha256")
+         .update(refreshToken)
+         .digest("hex");
+
+   await refreshTokenModel.deleteRefreshToken(
+      tokenHash
+   );
+
+   return true;
+
+}
+
 
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    refreshAccessToken,
+    logoutUser
 }

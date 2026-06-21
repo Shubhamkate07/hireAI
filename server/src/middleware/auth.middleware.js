@@ -21,6 +21,11 @@ const authMiddleware=(req,res,next)=>{
         next();
     }catch(err){
 
+    if(err instanceof ApiError){
+      return next(err);
+   }
+
+
         if(
          err.name ===
          "TokenExpiredError"

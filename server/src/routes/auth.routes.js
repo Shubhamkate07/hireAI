@@ -6,9 +6,16 @@ const authController =
 const authMiddleware =
  require("../middleware/auth.middleware");
 
+const authLimiter =
+   require(
+      "../middleware/rateLimit.middleware"
+   );
 
-const router = express.Router();
-
+   
+   const router = express.Router();
+   
+   router.use(authLimiter);
+   
 router.post(
     "/register",
     authController.register
@@ -18,6 +25,14 @@ router.post(
     "/login",
     authController.login
 );
+
+// apply for specific route 
+
+// router.post(
+//    "/login",
+//    authLimiter,
+//    authController.login
+// );
 
 router.post(
     "/refresh-token",

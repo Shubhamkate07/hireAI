@@ -5,6 +5,11 @@ const morgan= require('morgan');
 const authRoutes= require('./routes/auth.routes')
 const cookieParser = require("cookie-parser");
 
+const loggerMiddleware =
+   require(
+      "./middleware/logger.middleware"
+   );
+
 
 const app= express();
 app.use(cors());
@@ -12,6 +17,8 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
+
+app.use(loggerMiddleware);
 
 app.use('/api/auth', authRoutes);
 

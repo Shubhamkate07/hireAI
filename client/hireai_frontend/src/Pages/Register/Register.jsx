@@ -1,6 +1,15 @@
 import { useState } from "react";
-
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 function Register() {
+
+    const navigate = useNavigate();
+
+const { register } = useAuth();
+
+const [apiError, setApiError] = useState("");
+
+
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -35,8 +44,8 @@ function Register() {
 
         if (!formData.password) {
             newErrors.password = "Password is required";
-        } else if (formData.password.length < 6) {
-            newErrors.password = "Password must be at least 6 characters";
+        } else if (formData.password.length < 8) {
+            newErrors.password = "Password must be at least 8 characters";
         }
 
         if (!formData.confirmPassword) {
@@ -51,7 +60,7 @@ function Register() {
         return newErrors;
     };
 
- const handleSubmit = (e) => {
+ const handleSubmit = async(e) => {
     e.preventDefault();
 
     const validationErrors = validate();
@@ -62,10 +71,31 @@ function Register() {
         return;
     }
 
-    console.log(formData);
+    try {
+
+    setApiError("");
+
+    await register(
+        formData.name,
+        formData.email,
+        formData.password,
+        formData.role
+    );
+
+    navigate("/login");
+
+} catch (error) {
+
+    setApiError(
+        error.response?.data?.message ||
+        "Registration failed"
+    );
+}
 };
 
     return (
+        <>
+      
         <form onSubmit={handleSubmit}>
             <input
                 type="text"
@@ -125,6 +155,12 @@ function Register() {
                 Register
             </button>
         </form>
+      
+      <p>{apiError}</p>
+
+      <Link to={'/login'}>Login</Link>
+          </>
+
     );
 }
 

@@ -34,7 +34,7 @@ const registerUser = async (name, email, password, role = "candidate") => {
         if (!passwordRegex.test(password)) {
             throw new ApiError(
                 400,
-                "Password must contain uppercase lowercase and number"
+                "Password must contain uppercase lowercase number and be at least 8 characters"
             );
         }
         const existingUser = await userModel.findUserByEmail(email);

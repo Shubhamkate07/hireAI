@@ -9,34 +9,7 @@ const userModel = require('../models/user.model')
 const refreshTokenModel= require('../models/refreshToken.model')
 
 const registerUser = async (name, email, password, role = "candidate") => {
-   
-    if (!name || name.length < 2) {
-   throw new ApiError(
-      400,
-      "Name must be at least 2 characters"
-   );
-}
 
-
-        const emailRegex =
-            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-        if (!emailRegex.test(email)) {
-            throw new ApiError(
-                400,
-                "Invalid email"
-            );
-        }
-
-        const passwordRegex =
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-
-        if (!passwordRegex.test(password)) {
-            throw new ApiError(
-                400,
-                "Password must contain uppercase lowercase number and be at least 8 characters"
-            );
-        }
         const existingUser = await userModel.findUserByEmail(email);
 
         if (existingUser) {
@@ -67,23 +40,6 @@ const registerUser = async (name, email, password, role = "candidate") => {
    
 const loginUser = async (email, password) => {
 
-     const emailRegex =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-   if (!emailRegex.test(email)) {
-      throw new ApiError(
-         400,
-         "Invalid email format"
-      );
-   }
-
-   if (!password) {
-      throw new ApiError(
-         400,
-         "Password is required"
-      );
-   }
-   
     const user = await userModel.findUserByEmail(email);
 
     if (!user) {
@@ -199,10 +155,19 @@ const refreshAccessToken = async (refreshToken) => {
          process.env.REFRESH_TOKEN_SECRET
       );
 
+   // Fetch user to get the current role — if role changed after
+   // the refresh token was issued, the new access token reflects it
+   const user = await userModel.findUserById(decoded.id);
+
+   if (!user) {
+      throw new ApiError(401, "User no longer exists");
+   }
+
    const accessToken =
       jwt.sign(
          {
-            id: decoded.id
+            id: user.id,
+            role: user.role
          },
          process.env.JWT_SECRET,
          {

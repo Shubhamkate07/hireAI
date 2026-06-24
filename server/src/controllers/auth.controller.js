@@ -2,6 +2,7 @@
 const authService = require('../services/auth.service');
 const userModel = require('../models/user.model');
 const ApiResponse = require('../utils/ApiResponse');
+const ApiError = require('../utils/ApiError');
 
 const register = async (req,res,next)=>{
 try{
@@ -31,10 +32,10 @@ const login = async (req,res,next)=>{
       "accessToken",
       result.accessToken,
       {
-        httpOnly:true,
-        secure:false, // true in production HTTPS
-        sameSite:"strict",
-        maxAge:15 * 60 * 1000
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000
       }
     );
 
@@ -42,19 +43,20 @@ const login = async (req,res,next)=>{
       "refreshToken",
       result.refreshToken,
       {
-        httpOnly:true,
-        secure:false, // true in production HTTPS
-        sameSite:"strict",
-        maxAge:7 * 24 * 60 * 60 * 1000
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000
       }
     );
 
 
-   
+   // Only return user data — tokens are in httpOnly cookies
+   // and must never be exposed in the response body
    return res.status(200).json(
     new ApiResponse(
     200,
-    result,
+    { user: result.user },
     "Login Successful"
     )
    )
@@ -65,9 +67,11 @@ const login = async (req,res,next)=>{
 
 const refreshToken = async (req,res,next)=>{
    try{
-      const {
-         refreshToken
-      } = req.body;
+
+      // Token is stored in an httpOnly cookie — never in the request body.
+      // Postman: after calling /login, Postman's cookie jar stores the cookie
+      // automatically and sends it with every subsequent request.
+      const refreshToken = req.cookies.refreshToken;
 
       const result =
          await authService
@@ -80,9 +84,9 @@ const refreshToken = async (req,res,next)=>{
          "accessToken",
          result.accessToken,
          {
-            httpOnly:true,
-            secure:false,
-            sameSite:"strict",
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
             maxAge:
               15 * 60 * 1000
          }
@@ -91,7 +95,7 @@ const refreshToken = async (req,res,next)=>{
       return res.status(200).json(
          new ApiResponse(
             200,
-            result,
+            {},
             "New Access Token Generated"
          )
       );

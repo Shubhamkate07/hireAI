@@ -32,8 +32,6 @@ const deleteRefreshToken = async (
     [tokenHash]
   );
 
-  console.log(result);
-
   return result;
 };
 

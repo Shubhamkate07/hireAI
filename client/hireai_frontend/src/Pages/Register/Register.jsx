@@ -63,6 +63,10 @@ function Register() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Clear all previous errors on every new submit attempt
+        setApiError({});
+        setErrors({});
+
         // const validationErrors = validate();
 
         // setErrors(validationErrors);
@@ -72,8 +76,6 @@ function Register() {
         // }
 
         try {
-
-            setApiError({});
 
             await register(
                 formData.name,

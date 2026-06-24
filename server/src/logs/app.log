@@ -124,3 +124,11 @@
 2026-06-24T18:41:19.064Z | POST | /api/auth/login | 401 | 140ms
 2026-06-24T18:41:23.705Z | POST | /api/auth/login | 401 | 7ms
 2026-06-24T18:41:26.705Z | POST | /api/auth/login | 200 | 142ms
+2026-06-24T18:59:03.128Z | POST | /api/auth/register | 400 | 48ms
+2026-06-24T18:59:52.961Z | POST | /api/auth/register | 400 | 5ms
+2026-06-24T18:59:58.319Z | POST | /api/auth/register | 400 | 4ms
+2026-06-24T19:00:04.312Z | POST | /api/auth/register | 201 | 374ms
+2026-06-24T19:00:21.730Z | GET | /api/auth/me | 401 | 7ms
+2026-06-24T19:00:32.518Z | GET | /api/auth/me | 401 | 3ms
+2026-06-24T19:01:13.297Z | POST | /api/auth/refresh-token | 200 | 18ms
+2026-06-24T19:01:31.659Z | GET | /api/auth/me | 200 | 4ms

@@ -42,6 +42,10 @@ const { login } = useAuth();
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Clear all previous errors on every new submit attempt
+        setApiError({});
+        setErrors({});
+
         const validationErrors = validate();
         setErrors(validationErrors);
 
@@ -50,8 +54,6 @@ const { login } = useAuth();
         }
 
 try {
-
-    setApiError({});
 
     await login(
         formData.email,

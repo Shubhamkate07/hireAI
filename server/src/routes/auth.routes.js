@@ -1,38 +1,37 @@
 const express = require("express");
 
 const authController =
- require("../controllers/auth.controller");
+    require("../controllers/auth.controller");
 
 const authMiddleware =
- require("../middleware/auth.middleware");
+    require("../middleware/auth.middleware");
 
 const authLimiter =
-   require(
-      "../middleware/rateLimit.middleware"
-   );
+    require("../middleware/rateLimit.middleware");
 
-   
-   const router = express.Router();
-   
-   router.use(authLimiter);
-   
+const {
+    registerValidation,
+    loginValidation,
+    validate,
+} = require("../middleware/validation.middleware");
+
+const router = express.Router();
+
+router.use(authLimiter);
+
 router.post(
     "/register",
+    registerValidation,
+    validate,
     authController.register
 );
 
 router.post(
     "/login",
+    loginValidation,
+    validate,
     authController.login
 );
-
-// apply for specific route 
-
-// router.post(
-//    "/login",
-//    authLimiter,
-//    authController.login
-// );
 
 router.post(
     "/refresh-token",
@@ -45,11 +44,9 @@ router.post(
 );
 
 router.get(
-   "/me",
-   authMiddleware,
-   authController.getMe
+    "/me",
+    authMiddleware,
+    authController.getMe
 );
-
-
 
 module.exports = router;

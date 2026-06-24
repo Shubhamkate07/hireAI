@@ -64,7 +64,7 @@ const registerUser = async (name, email, password, role = "candidate") => {
 
     
 }
-
+   
 const loginUser = async (email, password) => {
 
      const emailRegex =

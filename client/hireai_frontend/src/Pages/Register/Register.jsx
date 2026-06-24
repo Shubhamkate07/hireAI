@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+
 function Register() {
 
     const navigate = useNavigate();
 
-const { register } = useAuth();
+    const { register } = useAuth();
 
-const [apiError, setApiError] = useState("");
-
+    const [apiError, setApiError] = useState({});
 
     const [formData, setFormData] = useState({
         name: "",
@@ -60,42 +60,60 @@ const [apiError, setApiError] = useState("");
         return newErrors;
     };
 
- const handleSubmit = async(e) => {
-    e.preventDefault();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-    const validationErrors = validate();
+        // const validationErrors = validate();
 
-    setErrors(validationErrors);
+        // setErrors(validationErrors);
 
-    if (Object.keys(validationErrors).length > 0) {
-        return;
-    }
+        // if (Object.keys(validationErrors).length > 0) {
+        //     return;
+        // }
 
-    try {
+        try {
 
-    setApiError("");
+            setApiError({});
 
-    await register(
-        formData.name,
-        formData.email,
-        formData.password,
-        formData.role
-    );
+            await register(
+                formData.name,
+                formData.email,
+                formData.password,
+                formData.confirmPassword,
+                formData.role
+            );
 
-    navigate("/login");
+            navigate("/login");
 
-} catch (error) {
+        } catch (error) {
 
-    setApiError(
-        error.response?.data?.message ||
-        "Registration failed"
-    );
-}
-};
+            const data = error.response?.data;
+
+            if (data?.errors?.length > 0) {
+
+                // Server returned structured field-level errors
+                // Convert the array to { field: message } object
+                const serverErrors = {};
+
+                data.errors.forEach(({ field, message }) => {
+                    serverErrors[field] = message;
+                });
+
+                setApiError(serverErrors);
+
+            } else {
+
+                // Generic error (email already exists, 500, network, etc.)
+                setApiError({
+                    message: data?.message || "Registration failed. Please try again."
+                });
+            }
+        }
+    };
 
     return (
         <>
-      
+          
         <form onSubmit={handleSubmit}>
             <input
                 type="text"
@@ -104,7 +122,7 @@ const [apiError, setApiError] = useState("");
                 value={formData.name}
                 onChange={handleChange}
             />
-            <p>{errors.name}</p>
+            <p>{errors.name || apiError.name}</p>
 
             <input
                 type="email"
@@ -113,7 +131,7 @@ const [apiError, setApiError] = useState("");
                 value={formData.email}
                 onChange={handleChange}
             />
-            <p>{errors.email}</p>
+            <p>{errors.email || apiError.email}</p>
 
             <input
                 type="password"
@@ -122,7 +140,7 @@ const [apiError, setApiError] = useState("");
                 value={formData.password}
                 onChange={handleChange}
             />
-            <p>{errors.password}</p>
+            <p>{errors.password || apiError.password}</p>
 
             <input
                 type="password"
@@ -131,7 +149,7 @@ const [apiError, setApiError] = useState("");
                 value={formData.confirmPassword}
                 onChange={handleChange}
             />
-            <p>{errors.confirmPassword}</p>
+            <p>{errors.confirmPassword || apiError.confirmPassword}</p>
 
             <select
                 name="role"
@@ -156,10 +174,10 @@ const [apiError, setApiError] = useState("");
             </button>
         </form>
       
-      <p>{apiError}</p>
+        <p>{apiError.message}</p>
 
-      <Link to={'/login'}>Login</Link>
-          </>
+        <Link to={'/login'}>Login</Link>
+            </>
 
     );
 }

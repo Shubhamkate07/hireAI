@@ -4,7 +4,6 @@ import { useAuth } from "../../context/AuthContext";
 
 function Login() {
 
-
     const navigate = useNavigate();
 
 const { login } = useAuth();
@@ -16,7 +15,7 @@ const { login } = useAuth();
     });
 
     const [errors, setErrors] = useState({});
-    const [apiError, setApiError] = useState("");
+    const [apiError, setApiError] = useState({});
 
 
     const handleChange = (e) => {
@@ -40,7 +39,7 @@ const { login } = useAuth();
         return newErrors;
     };
 
-    const handleSubmit =  async(e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         const validationErrors = validate();
@@ -52,7 +51,7 @@ const { login } = useAuth();
 
 try {
 
-    setApiError("");
+    setApiError({});
 
     await login(
         formData.email,
@@ -63,10 +62,27 @@ try {
 
 } catch (error) {
 
-    setApiError(
-        error.response?.data?.message ||
-        "Login failed"
-    );
+    const data = error.response?.data;
+
+    if (data?.errors?.length > 0) {
+
+        // Server returned structured field-level errors
+        // Convert the array to { field: message } object
+        const serverErrors = {};
+
+        data.errors.forEach(({ field, message }) => {
+            serverErrors[field] = message;
+        });
+
+        setApiError(serverErrors);
+
+    } else {
+
+        // Generic error (invalid credentials, 500, network, etc.)
+        setApiError({
+            message: data?.message || "Login failed"
+        });
+    }
 }
     };
 
@@ -80,7 +96,7 @@ try {
                 value={formData.email}
                 onChange={handleChange}
                 />
-            <p>{errors.email}</p>
+            <p>{errors.email || apiError.email}</p>
 
             <input
                 type="password"
@@ -89,7 +105,7 @@ try {
                 value={formData.password}
                 onChange={handleChange}
                 />
-            <p>{errors.password}</p>
+            <p>{errors.password || apiError.password}</p>
 
           
 
@@ -98,7 +114,7 @@ try {
             </button>
         </form>
 
-        <p>{apiError}</p>
+        <p>{apiError.message}</p>
 
         <Link to={'/register'}>Register</Link>
                 </>

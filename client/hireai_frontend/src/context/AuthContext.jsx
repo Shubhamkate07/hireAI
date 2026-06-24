@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }) => {
         name,
         email,
         password,
+        confirmPassword,
         role
     ) => {
         try {
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }) => {
                     name,
                     email,
                     password,
+                    confirmPassword,
                     role
                 );
 

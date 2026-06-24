@@ -11,12 +11,14 @@ export const registerUser = (
     name,
     email,
     password,
+    confirmPassword,
     role
 ) => {
     return api.post("/auth/register", {
         name,
         email,
         password,
+        confirmPassword,
         role
     });
 };

@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+// import { useAuth } from "../../context/AuthContext";
+import {useDispatch} from 'react-redux'
+import { registerUser } from "../../store/slices/authSlice";
 
 function Register() {
 
     const navigate = useNavigate();
 
-    const { register } = useAuth();
+    // const { register } = useAuth();
+
+    const dispatch = useDispatch();
 
     const [apiError, setApiError] = useState({});
 
@@ -67,37 +71,37 @@ function Register() {
         setApiError({});
         setErrors({});
 
-        // const validationErrors = validate();
+        const validationErrors = validate();
 
-        // setErrors(validationErrors);
+        setErrors(validationErrors);
 
-        // if (Object.keys(validationErrors).length > 0) {
-        //     return;
-        // }
+        if (Object.keys(validationErrors).length > 0) {
+            return;
+        }
 
         try {
 
-            await register(
-                formData.name,
-                formData.email,
-                formData.password,
-                formData.confirmPassword,
-                formData.role
-            );
-
+          await dispatch(
+    registerUser({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        role: formData.role
+    })
+).unwrap();
             navigate("/login");
 
-        } catch (error) {
+        } catch (rejectedValue) {
 
-            const data = error.response?.data;
-
-            if (data?.errors?.length > 0) {
+            // rejectedValue is the payload passed to rejectWithValue() in the thunk
+            if (rejectedValue?.errors?.length > 0) {
 
                 // Server returned structured field-level errors
                 // Convert the array to { field: message } object
                 const serverErrors = {};
 
-                data.errors.forEach(({ field, message }) => {
+                rejectedValue.errors.forEach(({ field, message }) => {
                     serverErrors[field] = message;
                 });
 
@@ -107,7 +111,7 @@ function Register() {
 
                 // Generic error (email already exists, 500, network, etc.)
                 setApiError({
-                    message: data?.message || "Registration failed. Please try again."
+                    message: rejectedValue?.message || "Registration failed. Please try again."
                 });
             }
         }

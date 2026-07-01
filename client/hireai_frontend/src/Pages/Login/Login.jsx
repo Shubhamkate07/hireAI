@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+// import { useAuth } from "../../context/AuthContext";
+// import { loginUser } from "../../services/authService";
+import { loginUser } from "../../store/slices/authSlice";
+import { useDispatch } from "react-redux";
 
 function Login() {
 
     const navigate = useNavigate();
 
-const { login } = useAuth();
+// const { login } = useAuth();
+
+const dispatch = useDispatch();
 
 
     const [formData, setFormData] = useState({
@@ -55,24 +60,25 @@ const { login } = useAuth();
 
 try {
 
-    await login(
-        formData.email,
-        formData.password
-    );
+   await dispatch(
+    loginUser({
+        email: formData.email,
+        password: formData.password
+    })
+).unwrap();
 
     navigate("/dashboard");
 
-} catch (error) {
+} catch (rejectedValue) {
 
-    const data = error.response?.data;
-
-    if (data?.errors?.length > 0) {
+    // rejectedValue is the payload passed to rejectWithValue() in the thunk
+    if (rejectedValue?.errors?.length > 0) {
 
         // Server returned structured field-level errors
         // Convert the array to { field: message } object
         const serverErrors = {};
 
-        data.errors.forEach(({ field, message }) => {
+        rejectedValue.errors.forEach(({ field, message }) => {
             serverErrors[field] = message;
         });
 
@@ -82,7 +88,7 @@ try {
 
         // Generic error (invalid credentials, 500, network, etc.)
         setApiError({
-            message: data?.message || "Login failed"
+            message: rejectedValue?.message || "Login failed"
         });
     }
 }

@@ -1,15 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useDispatch, useSelector } from "react-redux";
+import { logoutUser } from "../../store/slices/authSlice";
 
 const Dashboard = () => {
 
-    const { user, logout } = useAuth();
-
+    const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    const handleLogout = async () => {
-        await logout();
+    // Read user directly from Redux store
+    const user = useSelector((state) => state.auth.user);
 
+    const handleLogout = async () => {
+        await dispatch(logoutUser());
         navigate("/login");
     };
 

@@ -1,26 +1,13 @@
 import api from "./api";
 
-export const loginUser = (email, password) => {
-    return api.post("/auth/login", {
-        email,
-        password
-    });
+// Accepts a single credentials object: { email, password }
+export const loginUser = (credentials) => {
+    return api.post("/auth/login", credentials);
 };
 
-export const registerUser = (
-    name,
-    email,
-    password,
-    confirmPassword,
-    role
-) => {
-    return api.post("/auth/register", {
-        name,
-        email,
-        password,
-        confirmPassword,
-        role
-    });
+// Accepts a single user object: { name, email, password, confirmPassword, role }
+export const registerUser = (userData) => {
+    return api.post("/auth/register", userData);
 };
 
 export const logoutUser = () => {

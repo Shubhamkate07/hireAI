@@ -5,6 +5,8 @@ const morgan= require('morgan');
 const authRoutes= require('./routes/auth.routes')
 const userRoutes =
    require("./routes/user.routes");
+const jobRoutes =
+   require("./routes/job.routes");
 
 const cookieParser = require("cookie-parser");
 
@@ -33,6 +35,11 @@ app.use('/api/auth', authRoutes);
 app.use(
    "/api/users",
    userRoutes
+);
+
+app.use(
+   "/api/jobs",
+   jobRoutes
 );
 
 

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 // import { useAuth } from "../../context/AuthContext";
 import {useDispatch} from 'react-redux'
 import { registerUser } from "../../store/slices/authSlice";
+import "../Login/Login.css";
+import "./Register.css";
 
 function Register() {
 
@@ -118,73 +120,125 @@ function Register() {
     };
 
     return (
-        <>
-          
-        <form onSubmit={handleSubmit}>
-            <input
-                type="text"
-                name="name"
-                placeholder="Name"
-                value={formData.name}
-                onChange={handleChange}
-            />
-            <p>{errors.name || apiError.name}</p>
+        <main className="auth-page">
+            <div className="auth-bg" aria-hidden="true" />
+            <div className="auth-grid" aria-hidden="true" />
 
-            <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-            />
-            <p>{errors.email || apiError.email}</p>
+            <div className="auth-card auth-card--register">
+                <div className="auth-brand">
+                    <div className="auth-logo-icon" aria-hidden="true">🤖</div>
+                    <span className="auth-logo-text">HireAI</span>
+                </div>
 
-            <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-            />
-            <p>{errors.password || apiError.password}</p>
+                <h1 className="auth-title">Create your account</h1>
+                <p className="auth-subtitle">Join HireAI and supercharge your hiring</p>
 
-            <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-            />
-            <p>{errors.confirmPassword || apiError.confirmPassword}</p>
+                {apiError.message && (
+                    <div className="api-error-banner" role="alert">
+                        <span>⚠️</span>
+                        <span>{apiError.message}</span>
+                    </div>
+                )}
 
-            <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-            >
-                <option value="candidate">
-                    Candidate
-                </option>
+                <form className="auth-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="reg-name" className="form-label">Full name</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="reg-name"
+                                type="text"
+                                name="name"
+                                placeholder="Name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                className={`form-input${errors.name || apiError.name ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">👤</span>
+                        </div>
+                        <p className="field-error">{errors.name || apiError.name}</p>
+                    </div>
 
-                <option value="recruiter">
-                    Recruiter
-                </option>
+                    <div className="form-group">
+                        <label htmlFor="reg-email" className="form-label">Email address</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="reg-email"
+                                type="email"
+                                name="email"
+                                placeholder="Email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                className={`form-input${errors.email || apiError.email ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">✉️</span>
+                        </div>
+                        <p className="field-error">{errors.email || apiError.email}</p>
+                    </div>
 
-                <option value="admin">
-                    Admin
-                </option>
-            </select>
+                    <div className="form-group">
+                        <label htmlFor="reg-password" className="form-label">Password</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="reg-password"
+                                type="password"
+                                name="password"
+                                placeholder="Password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className={`form-input${errors.password || apiError.password ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">🔒</span>
+                        </div>
+                        <p className="field-error">{errors.password || apiError.password}</p>
+                    </div>
 
-            <button type="submit">
-                Register
-            </button>
-        </form>
-      
-        <p>{apiError.message}</p>
+                    <div className="form-group">
+                        <label htmlFor="reg-confirm-password" className="form-label">Confirm password</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="reg-confirm-password"
+                                type="password"
+                                name="confirmPassword"
+                                placeholder="Confirm Password"
+                                value={formData.confirmPassword}
+                                onChange={handleChange}
+                                className={`form-input${errors.confirmPassword || apiError.confirmPassword ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">✅</span>
+                        </div>
+                        <p className="field-error">{errors.confirmPassword || apiError.confirmPassword}</p>
+                    </div>
 
-        <Link to={'/login'}>Login</Link>
-            </>
+                    <div className="form-group">
+                        <label htmlFor="reg-role" className="form-label">Role</label>
+                        <div className="select-wrapper">
+                            <select
+                                id="reg-role"
+                                name="role"
+                                value={formData.role}
+                                onChange={handleChange}
+                                className="form-select no-icon"
+                            >
+                                <option value="candidate">Candidate</option>
+                                <option value="recruiter">Recruiter</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <span className="select-arrow" aria-hidden="true">▼</span>
+                        </div>
+                    </div>
 
+                    <button type="submit" className="btn-primary">
+                        Register
+                    </button>
+                </form>
+
+                <div className="auth-divider" />
+
+                <p className="auth-footer">
+                    Already have an account? <Link to={'/login'}>Login</Link>
+                </p>
+            </div>
+        </main>
     );
 }
 

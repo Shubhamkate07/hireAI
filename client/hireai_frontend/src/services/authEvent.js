@@ -11,7 +11,7 @@ export const injectStore = (store) => {
 export const triggerLogout = () => {
     if (_store) {
         // Import clearUser lazily to avoid circular imports
-        import('./authSlice').then(({ clearUser }) => {
+        import('../store/slices/authSlice').then(({ clearUser }) => {
             _store.dispatch(clearUser());
         });
     }

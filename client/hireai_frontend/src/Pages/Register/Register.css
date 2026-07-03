@@ -1,0 +1,14 @@
+/* ============================================================
+   Register Page – additional overrides on top of Login.css
+   ============================================================ */
+
+/* Slightly wider card for the extra fields */
+.auth-card--register {
+  max-width: 480px;
+}
+
+@media (max-width: 520px) {
+  .auth-card--register {
+    padding: 2rem 1.4rem;
+  }
+}

@@ -90,8 +90,68 @@ const validate = (req, res, next) => {
     next();
 };
 
+// ─── Create Job Validation Rules ─────────────────────────────────────────────
+
+const JOB_TYPES = [
+    "full-time",
+    "part-time",
+    "contract",
+    "internship",
+];
+
+const createJobValidation = [
+
+    body("title")
+        .trim()
+        .notEmpty()
+        .withMessage("Title is required")
+        .isLength({ min: 5, max: 150 })
+        .withMessage("Title must be between 5 and 150 characters"),
+
+    body("description")
+        .trim()
+        .notEmpty()
+        .withMessage("Description is required")
+        .isLength({ min: 20 })
+        .withMessage("Description must be at least 20 characters"),
+
+    body("company")
+        .trim()
+        .notEmpty()
+        .withMessage("Company is required"),
+
+    body("location")
+        .optional()
+        .trim(),
+
+    body("salary_min")
+        .optional({ nullable: true })
+        .isInt({ min: 0 })
+        .withMessage("salary_min must be a non-negative integer"),
+
+    body("salary_max")
+        .optional({ nullable: true })
+        .isInt({ min: 0 })
+        .withMessage("salary_max must be a non-negative integer")
+        .custom((value, { req }) => {
+            const min = req.body.salary_min;
+            if (min !== undefined && min !== null && value < min) {
+                throw new Error("salary_max must be greater than or equal to salary_min");
+            }
+            return true;
+        }),
+
+    body("job_type")
+        .notEmpty()
+        .withMessage("job_type is required")
+        .isIn(JOB_TYPES)
+        .withMessage(`job_type must be one of: ${JOB_TYPES.join(", ")}`),
+
+];
+
 module.exports = {
     registerValidation,
     loginValidation,
+    createJobValidation,
     validate,
 };

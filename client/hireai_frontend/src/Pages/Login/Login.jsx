@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 // import { loginUser } from "../../services/authService";
 import { loginUser } from "../../store/slices/authSlice";
 import { useDispatch } from "react-redux";
+import "./Login.css";
 
 function Login() {
 
@@ -95,37 +96,73 @@ try {
     };
 
     return (
-        <>
-        <form onSubmit={handleSubmit}>
-            <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                />
-            <p>{errors.email || apiError.email}</p>
+        <main className="auth-page">
+            <div className="auth-bg" aria-hidden="true" />
+            <div className="auth-grid" aria-hidden="true" />
 
-            <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                />
-            <p>{errors.password || apiError.password}</p>
+            <div className="auth-card">
+                <div className="auth-brand">
+                    <div className="auth-logo-icon" aria-hidden="true">🤖</div>
+                    <span className="auth-logo-text">HireAI</span>
+                </div>
 
-          
+                <h1 className="auth-title">Welcome back</h1>
+                <p className="auth-subtitle">Sign in to your account to continue</p>
 
-            <button type="submit">
-                Login
-            </button>
-        </form>
+                {apiError.message && (
+                    <div className="api-error-banner" role="alert">
+                        <span>⚠️</span>
+                        <span>{apiError.message}</span>
+                    </div>
+                )}
 
-        <p>{apiError.message}</p>
+                <form className="auth-form" onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="login-email" className="form-label">Email address</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="login-email"
+                                type="email"
+                                name="email"
+                                placeholder="you@example.com"
+                                value={formData.email}
+                                onChange={handleChange}
+                                className={`form-input${errors.email || apiError.email ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">✉️</span>
+                        </div>
+                        <p className="field-error">{errors.email || apiError.email}</p>
+                    </div>
 
-        <Link to={'/register'}>Register</Link>
-                </>
+                    <div className="form-group">
+                        <label htmlFor="login-password" className="form-label">Password</label>
+                        <div className="input-wrapper">
+                            <input
+                                id="login-password"
+                                type="password"
+                                name="password"
+                                placeholder="Enter your password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                className={`form-input${errors.password || apiError.password ? " input-error" : ""}`}
+                            />
+                            <span className="input-icon" aria-hidden="true">🔒</span>
+                        </div>
+                        <p className="field-error">{errors.password || apiError.password}</p>
+                    </div>
+
+                    <button type="submit" className="btn-primary">
+                        Login
+                    </button>
+                </form>
+
+                <div className="auth-divider" />
+
+                <p className="auth-footer">
+                    Don't have an account? <Link to={'/register'}>Register</Link>
+                </p>
+            </div>
+        </main>
     );
 }
 

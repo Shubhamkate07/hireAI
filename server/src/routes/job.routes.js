@@ -11,6 +11,7 @@ const rbacMiddleware =
 
 const {
     createJobValidation,
+    updateJobValidation,
     validate,
 } = require("../middleware/validation.middleware");
 
@@ -26,6 +27,16 @@ router.post(
     jobController.createJob
 );
 
+// GET /api/jobs/my-jobs — recruiter's own jobs (all statuses)
+// ⚠️  Must be defined BEFORE /:id so Express doesn't interpret
+//    "my-jobs" as a dynamic :id param.
+router.get(
+    "/my-jobs",
+    authMiddleware,
+    rbacMiddleware(["recruiter", "admin"]),
+    jobController.getMyJobs
+);
+
 // GET /api/jobs — public, no auth required
 router.get(
     "/",
@@ -36,6 +47,24 @@ router.get(
 router.get(
     "/:id",
     jobController.getJobById
+);
+
+// PATCH /api/jobs/:id — update a job (owner recruiter or admin only)
+router.patch(
+    "/:id",
+    authMiddleware,
+    rbacMiddleware(["recruiter", "admin"]),
+    updateJobValidation,
+    validate,
+    jobController.updateJob
+);
+
+// DELETE /api/jobs/:id — soft-close a job (owner recruiter or admin only)
+router.delete(
+    "/:id",
+    authMiddleware,
+    rbacMiddleware(["recruiter", "admin"]),
+    jobController.deleteJob
 );
 
 module.exports = router;

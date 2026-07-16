@@ -228,44 +228,19 @@ const getJobCount = async (
 
 };
 
-const updateJob = async (
-   id,
-   title,
-   description,
-   company,
-   location,
-   salaryMin,
-   salaryMax,
-   jobType,
-   status
-) => {
+// ─── Update Job ───────────────────────────────────────────────────────────────
+const updateJob = async (id, title, description, company, location, salaryMin, salaryMax, jobType, status) => {
 
    await pool.query(
-      `
-      UPDATE jobs
-      SET
-         title=?,
-         description=?,
-         company=?,
-         location=?,
-         salary_min=?,
-         salary_max=?,
-         job_type=?,
-         status=?
-      WHERE id=?
-      `,
-      [
-         title,
-         description,
-         company,
-         location,
-         salaryMin,
-         salaryMax,
-         jobType,
-         status,
-         id
-      ]
+      `UPDATE jobs
+       SET title = ?, description = ?, company = ?, location = ?,
+           salary_min = ?, salary_max = ?, job_type = ?, status = ?
+       WHERE id = ?`,
+      [title, description, company, location, salaryMin, salaryMax, jobType, status, id]
    );
+
+   // fetch and return the updated row
+   return findJobById(id);
 
 };
 
@@ -286,11 +261,24 @@ async(id)=>{
 
 };
 
+// ─── Get all jobs posted by a specific user ───────────────────────────────────
+const findJobsByUserId = async (userId) => {
+
+   const [rows] = await pool.query(
+      `SELECT * FROM jobs WHERE posted_by = ? ORDER BY created_at DESC`,
+      [userId]
+   );
+
+   return rows;
+
+};
+
 module.exports = {
    createJob,
    findJobById,
    findAllJobs,
    getJobCount,
    updateJob,
-   deleteJob
+   deleteJob,
+   findJobsByUserId,
 };

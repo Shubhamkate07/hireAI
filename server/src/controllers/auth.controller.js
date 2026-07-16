@@ -9,6 +9,8 @@ try{
     const {name, email, password, role} = req.body;
 
     const user= await authService.registerUser(name, email, password, role);
+    console.log(user);
+    
     return res.status(201).json(
         new ApiResponse(
         201,

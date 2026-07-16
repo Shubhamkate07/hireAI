@@ -80,7 +80,7 @@ const validate = (req, res, next) => {
             message: error.msg,
         }));
 
-        
+
 
         return next(
             new ApiError(400, "Validation failed", formattedErrors)
@@ -149,9 +149,68 @@ const createJobValidation = [
 
 ];
 
+// ─── Update Job Validation Rules (PATCH — all fields optional) ─────────────────────
+// The key difference from createJobValidation: every field is .optional().
+// We only validate fields that are actually present in req.body.
+// Sending { title: "New title" } is valid — description/company/etc are untouched.
+
+const updateJobValidation = [
+
+    body("title")
+        .optional()
+        .trim()
+        .isLength({ min: 5, max: 150 })
+        .withMessage("Title must be between 5 and 150 characters"),
+
+    body("description")
+        .optional()
+        .trim()
+        .isLength({ min: 20 })
+        .withMessage("Description must be at least 20 characters"),
+
+    body("company")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Company cannot be empty"),
+
+    body("location")
+        .optional()
+        .trim(),
+
+    body("salary_min")
+        .optional({ nullable: true })
+        .isInt({ min: 0 })
+        .withMessage("salary_min must be a non-negative integer"),
+
+    body("salary_max")
+        .optional({ nullable: true })
+        .isInt({ min: 0 })
+        .withMessage("salary_max must be a non-negative integer")
+        .custom((value, { req }) => {
+            const min = req.body.salary_min;
+            if (min !== undefined && min !== null && value < min) {
+                throw new Error("salary_max must be greater than or equal to salary_min");
+            }
+            return true;
+        }),
+
+    body("job_type")
+        .optional()
+        .isIn(JOB_TYPES)
+        .withMessage(`job_type must be one of: ${JOB_TYPES.join(", ")}`),
+
+    body("status")
+        .optional()
+        .isIn(["active", "closed", "draft"])
+        .withMessage("status must be one of: active, closed, draft"),
+
+];
+
 module.exports = {
     registerValidation,
     loginValidation,
     createJobValidation,
+    updateJobValidation,
     validate,
 };

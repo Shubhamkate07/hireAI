@@ -2,11 +2,11 @@ const express= require('express');
 const cors= require('cors');
 const helmet= require('helmet');
 const morgan= require('morgan');
-const authRoutes= require('./routes/auth.routes')
-const userRoutes =
-   require("./routes/user.routes");
-const jobRoutes =
-   require("./routes/job.routes");
+const authRoutes            = require('./routes/auth.routes');
+const userRoutes            = require('./routes/user.routes');
+const jobRoutes             = require('./routes/job.routes');
+const applicationRoutes     = require('./routes/application.routes');     // /api/jobs/:jobId/apply|applications
+const myApplicationRoutes   = require('./routes/my.application.routes');  // /api/applications/my
 
 const cookieParser = require("cookie-parser");
 
@@ -37,10 +37,14 @@ app.use(
    userRoutes
 );
 
-app.use(
-   "/api/jobs",
-   jobRoutes
-);
+app.use('/api/jobs', jobRoutes);
+
+// POST   /api/jobs/:jobId/apply         — candidate applies
+// GET    /api/jobs/:jobId/applications  — recruiter views applicants
+app.use('/api/jobs', applicationRoutes);
+
+// GET /api/applications/my — candidate views their own applications
+app.use('/api/applications', myApplicationRoutes);
 
 
 // server health check api

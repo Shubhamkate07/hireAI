@@ -55,3 +55,25 @@ export const getJobById = async (id) => {
   const response = await api.get(`/jobs/${id}`)
   return response.data.data   // single job object
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyToJob(jobId, resumeFile)
+//
+// Posts to POST /api/jobs/:jobId/apply as multipart/form-data.
+//
+// IMPORTANT: We pass FormData directly to axios and do NOT set Content-Type.
+// When axios receives a FormData body, the browser automatically sets:
+//   Content-Type: multipart/form-data; boundary=<generated-boundary>
+// If you manually set Content-Type: 'multipart/form-data', the boundary
+// string is missing and the server cannot parse the request body.
+// ─────────────────────────────────────────────────────────────────────────────
+export const applyToJob = async (jobId, resumeFile) => {
+  const formData = new FormData()
+  if (resumeFile) {
+    formData.append('resume', resumeFile)
+  }
+
+  // Correct — let axios/browser set Content-Type automatically
+  const response = await api.post(`/jobs/${jobId}/apply`, formData)
+  return response.data.data
+}

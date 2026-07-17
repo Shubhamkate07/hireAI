@@ -2,6 +2,7 @@ const express= require('express');
 const cors= require('cors');
 const helmet= require('helmet');
 const morgan= require('morgan');
+const multer = require('multer'); // needed only for instanceof check in error handler
 const authRoutes            = require('./routes/auth.routes');
 const userRoutes            = require('./routes/user.routes');
 const jobRoutes             = require('./routes/job.routes');
@@ -73,24 +74,42 @@ app.use((req, res) => {
   });
 });
 
-app.use((err,req,res,next)=>{
+app.use((err, req, res, next) => {
 
-    const statusCode =
-        err.statusCode || 500;
+    // ── Multer-specific errors ────────────────────────────────────────────────
+    // multer.MulterError is thrown for built-in violations like LIMIT_FILE_SIZE.
+    // Plain Error instances from fileFilter (wrong file type) are caught by the
+    // second branch. Both become 400 Bad Request — never 500.
+    if (err instanceof multer.MulterError) {
+        // e.g. LIMIT_FILE_SIZE → "File too large"
+        return res.status(400).json({
+            success: false,
+            statusCode: 400,
+            message: err.message,
+            errors: []
+        });
+    }
 
-    const message =
-        err.message || "Internal Server Error";
+    // fileFilter throws a plain Error('Only PDF and DOC/DOCX files are allowed')
+    // We detect it by checking whether the error is file-type related.
+    if (err.message === 'Only PDF and DOC/DOCX files are allowed') {
+        return res.status(400).json({
+            success: false,
+            statusCode: 400,
+            message: err.message,
+            errors: []
+        });
+    }
+
+    // ── All other errors (ApiError, DB errors, etc.) ──────────────────────────
+    const statusCode = err.statusCode || 500;
+    const message    = err.message    || 'Internal Server Error';
 
     return res.status(statusCode).json({
-
-        success:false,
-
+        success: false,
         statusCode,
-
         message,
-
         errors: err.errors || []
-
     });
 
 });

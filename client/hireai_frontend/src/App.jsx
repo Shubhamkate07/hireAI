@@ -13,33 +13,62 @@ import JobDetailPage from './Pages/JobDetailPage/JobDetailPage' // Project Task:
 
 import ProtectedRoute from './Components/ProtectedRoute'
 
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+// Catches any render-time JS errors thrown inside wrapped subtrees.
+// Prevents a single broken component from crashing the whole app.
+// Must be a class component — the getDerivedStateFromError API has no hooks
+// equivalent.
+import ErrorBoundary from './Components/ErrorBoundary'
+
 const App = () => {
   return (
-    <Routes>
+    /**
+     * Top-level ErrorBoundary — last resort safety net.
+     * Catches any uncaught render error in the entire app tree that isn't
+     * already caught by a closer boundary.
+     */
+    <ErrorBoundary>
+      <Routes>
 
-      {/* Public Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      {/* Public: React Query practice exercises */}
-      <Route path="/practice" element={<PracticePage />} />
+        {/* Public: React Query practice exercises */}
+        <Route path="/practice" element={<PracticePage />} />
 
-      {/* Protected Routes */}
-      <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<Profile />} />
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
 
-        {/* Project Task: Jobs list with useQuery, pagination, filters, debounce */}
-        <Route path="/jobs" element={<JobsListPage />} />
+          {/* Project Task: Jobs list — wrapped in its own ErrorBoundary so
+              a crash here shows the fallback UI, not a blank page. */}
+          <Route
+            path="/jobs"
+            element={
+              <ErrorBoundary>
+                <JobsListPage />
+              </ErrorBoundary>
+            }
+          />
 
-        {/* Project Task: Job detail page with useQuery(['job', id]) + Apply button */}
-        <Route path="/jobs/:id" element={<JobDetailPage />} />
-      </Route>
+          {/* Project Task: Job detail page with Apply flow */}
+          <Route
+            path="/jobs/:id"
+            element={
+              <ErrorBoundary>
+                <JobDetailPage />
+              </ErrorBoundary>
+            }
+          />
+        </Route>
 
-      {/* 404 */}
-      <Route path="*" element={<NotFound />} />
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
 
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   )
 }
 

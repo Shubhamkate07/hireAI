@@ -6,10 +6,16 @@ const applyToJob = async (req, res, next) => {
 
     try {
 
+        // req.file is set by upload.single('resume') middleware.
+        // If the candidate didn't attach a file, req.file is undefined
+        // and resumePath will be null — the DB column allows NULL.
+        const resumePath = req.file?.path ?? null;
+
         const result = await applicationService.applyToJob(
             req.params.jobId,   // which job
             req.user.id,        // who is applying
-            req.user.role       // must be 'candidate'
+            req.user.role,      // must be 'candidate'
+            resumePath          // path to saved file on disk (or null)
         );
 
         return res.status(201).json(

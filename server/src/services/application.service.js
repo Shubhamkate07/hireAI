@@ -3,7 +3,7 @@ const jobModel         = require('../models/job.model');
 const ApiError         = require('../utils/ApiError');
 
 // ─── Apply to a job ───────────────────────────────────────────────────────────
-const applyToJob = async (jobId, userId, userRole) => {
+const applyToJob = async (jobId, userId, userRole, resumePath) => {
 
     // Rule 1: only candidates can apply
     if (userRole !== 'candidate') {
@@ -27,7 +27,11 @@ const applyToJob = async (jobId, userId, userRole) => {
     // We catch that here and convert it to a clean 409 instead of a raw 500.
     try {
 
-        const applicationId = await applicationModel.createApplication(jobId, userId);
+        const applicationId = await applicationModel.createApplication(
+            jobId,
+            userId,
+            resumePath   // null if no file was uploaded
+        );
 
         return { application_id: applicationId, job_id: jobId, status: 'applied' };
 

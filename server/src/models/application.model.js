@@ -1,13 +1,15 @@
 const pool = require('../config/database');
 
 // ─── Create a new application ─────────────────────────────────────────────────
-// Inserts one row. If the UNIQUE KEY (job_id, candidate_id) is violated,
+// Inserts one row with the optional resume_path.
+// If the UNIQUE KEY (job_id, candidate_id) is violated,
 // MySQL throws error code ER_DUP_ENTRY — caught in the service layer.
-const createApplication = async (jobId, candidateId) => {
+const createApplication = async (jobId, candidateId, resumePath = null) => {
 
     const [result] = await pool.query(
-        `INSERT INTO applications (job_id, candidate_id) VALUES (?, ?)`,
-        [jobId, candidateId]
+        `INSERT INTO applications (job_id, candidate_id, resume_path)
+         VALUES (?, ?, ?)`,
+        [jobId, candidateId, resumePath]
     );
 
     return result.insertId;
@@ -17,6 +19,7 @@ const createApplication = async (jobId, candidateId) => {
 // ─── Find all applications for a job (with candidate info) ───────────────────
 // This is a JOIN query — one SQL call returns both the application row
 // AND the matching user row, so we don't need a second query per applicant.
+// resume_path is included so recruiters can see / download the resume.
 const findApplicationsByJob = async (jobId) => {
 
     const [rows] = await pool.query(
@@ -24,6 +27,7 @@ const findApplicationsByJob = async (jobId) => {
             applications.id          AS application_id,
             applications.status,
             applications.applied_at,
+            applications.resume_path,
             users.id                 AS candidate_id,
             users.name               AS candidate_name,
             users.email              AS candidate_email
@@ -47,6 +51,7 @@ const findApplicationsByCandidate = async (candidateId) => {
             applications.id          AS application_id,
             applications.status,
             applications.applied_at,
+            applications.resume_path,
             jobs.id                  AS job_id,
             jobs.title               AS job_title,
             jobs.company,

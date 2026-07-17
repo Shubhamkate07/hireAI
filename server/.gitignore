@@ -1,3 +1,8 @@
 node_modules
 
 .env
+
+# Uploaded files — never commit user data
+uploads/*
+# ...but track the directory structure itself
+!uploads/resumes/.gitkeep

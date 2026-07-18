@@ -5,8 +5,16 @@
  * This component has NO data-fetching logic.
  * It only receives a `job` prop and renders it.
  * This is the "dumb component" pattern — easy to test and reuse.
+ *
+ * OPTIMIZATION: Wrapped in React.memo
+ *   React.memo makes React skip re-rendering this component if
+ *   its props did not change. So if the parent (JobsListPage)
+ *   re-renders because the user typed something in the search
+ *   box, but this specific card's `job` data is identical,
+ *   React will reuse the last rendered output and skip the work.
  * ============================================================
  */
+import { memo } from 'react'
 
 const JOB_TYPE_COLORS = {
   remote:     { bg: '#eff6ff', text: '#1d4ed8', label: '🌐 Remote' },
@@ -173,4 +181,6 @@ const styles = {
   },
 }
 
-export default JobCard
+// React.memo wraps the component here at the export point.
+// The name 'JobCard' is preserved so React DevTools still shows it correctly.
+export default memo(JobCard)

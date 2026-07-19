@@ -8,6 +8,7 @@ const userRoutes            = require('./routes/user.routes');
 const jobRoutes             = require('./routes/job.routes');
 const applicationRoutes     = require('./routes/application.routes');     // /api/jobs/:jobId/apply|applications
 const myApplicationRoutes   = require('./routes/my.application.routes');  // /api/applications/my
+const assessmentRoutes      = require('./routes/assessment.routes');       // /api/jobs/:jobId/assessment
 
 const cookieParser = require("cookie-parser");
 
@@ -46,6 +47,11 @@ app.use('/api/jobs', applicationRoutes);
 
 // GET /api/applications/my — candidate views their own applications
 app.use('/api/applications', myApplicationRoutes);
+
+// POST /api/assessments              — create assessment (recruiter/admin)
+// GET  /api/assessments/:id          — fetch assessment + questions (role-aware)
+// POST /api/assessments/:id/submit   — candidate submits answers, server scores
+app.use('/api/assessments', assessmentRoutes);
 
 
 // server health check api

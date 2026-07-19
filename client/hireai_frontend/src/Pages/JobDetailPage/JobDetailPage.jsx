@@ -50,9 +50,10 @@
  * ============================================================
  */
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getJobById, applyToJob } from '../../services/jobService'
+import { getAssessmentByJobId } from '../../services/assessmentService'
 import FileUploadInput from '../../Components/FileUploadInput'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -394,6 +395,18 @@ const JobDetailPage = () => {
     retry: 2,
   })
 
+  // ── Check if this job has an assessment ──────────────────────────────────
+  // GET /api/assessments/by-job/:jobId
+  // Returns { id, title, time_limit_minutes } or null.
+  // We use this to show or hide the "Take Assessment" button.
+  // enabled: !!jobId ensures the query only runs once jobId is available.
+  const { data: jobAssessment } = useQuery({
+    queryKey: ['job-assessment', jobId],
+    queryFn:  () => getAssessmentByJobId(jobId),
+    enabled:  !!jobId,
+    staleTime: 1000 * 60 * 5,  // 5 minutes — assessment rarely changes
+  })
+
   /**
    * ─── useMutation — Apply Flow ─────────────────────────────────────────────
    *
@@ -593,6 +606,22 @@ const JobDetailPage = () => {
                       ✉️ Apply Now
                     </button>
                   )}
+
+                  {/* Take Assessment — only shown when this job has an assessment.
+                      jobAssessment.id is the primary key from the assessments table.
+                      Navigate to /assessments/:id so AssessmentPage can fetch by ID. */}
+                  {jobAssessment && (
+                    <Link
+                      id="take-assessment-btn"
+                      to={`/assessments/${jobAssessment.id}`}
+                      style={styles.assessmentBtn}
+                    >
+                      📝 Take Assessment
+                      <span style={styles.assessmentMeta}>
+                        {jobAssessment.title} · {jobAssessment.time_limit_minutes} min
+                      </span>
+                    </Link>
+                  )}
                 </>
               ) : (
                 <div style={styles.closedNotice}>
@@ -755,6 +784,26 @@ const styles = {
     border: '1px solid #e2e8f0',
     borderRadius: '10px',
     padding: '0.75rem 1rem',
+  },
+  assessmentBtn: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '3px',
+    padding: '0.7rem 1.5rem',
+    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    color: '#fff',
+    borderRadius: '10px',
+    fontSize: '0.95rem',
+    fontWeight: 700,
+    textDecoration: 'none',
+    transition: 'opacity 0.15s, transform 0.15s',
+    boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+  },
+  assessmentMeta: {
+    fontSize: '0.75rem',
+    fontWeight: 400,
+    opacity: 0.85,
   },
   errorBox: {
     display: 'flex',

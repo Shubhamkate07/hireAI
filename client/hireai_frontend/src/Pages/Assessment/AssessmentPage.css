@@ -1,0 +1,379 @@
+/* ============================================================
+   AssessmentPage.css  — Styles for the Assessment Quiz Runner
+   Uses the design tokens from index.css (:root variables)
+   ============================================================ */
+
+
+/* ── Page wrapper ──────────────────────────────────────────────────────────── */
+.ap-page {
+    min-height: 100vh;
+    background: var(--color-bg);
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+
+/* ── Card (shared base for question, loading, result, error) ──────────────── */
+.ap-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    width: 100%;
+    max-width: 720px;
+    box-shadow: var(--shadow-card);
+}
+
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.ap-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 720px;
+    gap: 1rem;
+}
+
+.ap-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.2rem;
+}
+
+.ap-progress-text {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+
+/* ── Timer ─────────────────────────────────────────────────────────────────── */
+.ap-timer {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-success);
+    white-space: nowrap;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+/* When time is low (≤ 30 s), turn red and pulse */
+.ap-timer--low {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+}
+
+
+/* ── Progress Bar ──────────────────────────────────────────────────────────── */
+.ap-progress-bar-track {
+    width: 100%;
+    max-width: 720px;
+    height: 6px;
+    background: var(--color-surface-2);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.ap-progress-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 99px;
+    transition: width var(--transition-md);
+}
+
+
+/* ── Question Navigation Pills ─────────────────────────────────────────────── */
+.ap-question-nav {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 720px;
+}
+
+.ap-nav-pill {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.ap-nav-pill:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* Active — the question currently being viewed */
+.ap-nav-pill--active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+/* Answered — user has selected an option */
+.ap-nav-pill--answered:not(.ap-nav-pill--active) {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+
+/* ── Question Card ─────────────────────────────────────────────────────────── */
+.ap-question-number {
+    font-size: 0.8rem;
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+}
+
+.ap-question-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+}
+
+
+/* ── Options ───────────────────────────────────────────────────────────────── */
+.ap-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ap-option {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.ap-option:hover {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.07);
+}
+
+/* Selected option */
+.ap-option--selected {
+    border-color: var(--color-primary);
+    background: rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.ap-option-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-surface-2);
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+
+.ap-option--selected .ap-option-key {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.ap-option-label {
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+
+/* ── Navigation Buttons ────────────────────────────────────────────────────── */
+.ap-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 720px;
+    gap: 0.75rem;
+}
+
+.ap-btn {
+    padding: 0.7rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.ap-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ap-btn--primary {
+    background: var(--color-primary);
+    color: #fff;
+    margin-left: auto;
+}
+
+.ap-btn--primary:hover:not(:disabled) {
+    background: var(--color-primary-h);
+    transform: translateY(-1px);
+}
+
+.ap-btn--secondary {
+    background: var(--color-surface-2);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
+.ap-btn--secondary:hover:not(:disabled) {
+    color: var(--color-text);
+    border-color: var(--color-primary);
+}
+
+.ap-btn--submit {
+    background: linear-gradient(135deg, var(--color-success), #059669);
+    color: #fff;
+    margin-left: auto;
+    box-shadow: 0 4px 15px rgba(52, 211, 153, 0.3);
+}
+
+.ap-btn--submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(52, 211, 153, 0.4);
+}
+
+
+/* ── Submit Error ──────────────────────────────────────────────────────────── */
+.ap-submit-error {
+    color: var(--color-error);
+    font-size: 0.9rem;
+    text-align: center;
+    max-width: 720px;
+}
+
+
+/* ── Loading State ─────────────────────────────────────────────────────────── */
+.ap-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--color-text-muted);
+}
+
+.ap-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* ── Error State ───────────────────────────────────────────────────────────── */
+.ap-error {
+    text-align: center;
+}
+
+.ap-error-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.ap-error h2 {
+    color: var(--color-error);
+    margin-bottom: 0.5rem;
+}
+
+.ap-error p {
+    color: var(--color-text-muted);
+}
+
+
+/* ── Result / Score State ──────────────────────────────────────────────────── */
+.ap-result {
+    text-align: center;
+}
+
+.ap-result-icon {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+}
+
+.ap-result h2 {
+    font-size: 1.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.ap-result-message {
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+}
+
+.ap-score-box {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 2.5rem;
+}
+
+.ap-score-value {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-success);
+    line-height: 1;
+}
+
+.ap-score-label {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .ap-title { font-size: 1.1rem; }
+    .ap-question-text { font-size: 1rem; }
+    .ap-card { padding: 1.25rem; }
+    .ap-header { flex-direction: column; }
+    .ap-timer { align-self: flex-start; }
+}

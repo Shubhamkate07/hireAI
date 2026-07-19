@@ -10,6 +10,7 @@ import NotFound from './Pages/NotFound/NotFound'
 import PracticePage  from './Pages/Practice/PracticePage'       // Exercises 2 & 3
 import JobsListPage  from './Pages/JobsListPage/JobsListPage'   // Project Task: list
 import JobDetailPage from './Pages/JobDetailPage/JobDetailPage' // Project Task: detail
+import AssessmentPage from './Pages/Assessment/AssessmentPage'   // Assessment Engine
 
 import ProtectedRoute from './Components/ProtectedRoute'
 
@@ -59,6 +60,18 @@ const App = () => {
             element={
               <ErrorBoundary>
                 <JobDetailPage />
+              </ErrorBoundary>
+            }
+          />
+          {/* Assessment Engine — candidate takes a quiz
+              Route: /assessments/:assessmentId
+              Matches backend: GET /api/assessments/:id
+              The assessment ID (not job ID) is the primary key for this resource. */}
+          <Route
+            path="/assessments/:assessmentId"
+            element={
+              <ErrorBoundary>
+                <AssessmentPage />
               </ErrorBoundary>
             }
           />

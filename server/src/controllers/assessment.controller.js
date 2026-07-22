@@ -137,21 +137,10 @@ const submitAssessment = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getAssessmentByJobId = async (req, res, next) => {
     try {
-        const { jobId } = req.params;
-        const pool = require('../config/database');
-
-        const [rows] = await pool.query(
-            `SELECT id, title, time_limit_minutes
-             FROM assessments
-             WHERE job_id = ?
-             LIMIT 1`,
-            [jobId]
-        );
+        const assessment = await assessmentService.getAssessmentByJobId(req.params.jobId);
 
         // Return null data (not 404) when no assessment exists for this job.
         // The frontend treats null as "no assessment" and hides the button.
-        const assessment = rows[0] ?? null;
-
         return res.status(200).json(
             new ApiResponse(200, assessment, assessment
                 ? 'Assessment found'

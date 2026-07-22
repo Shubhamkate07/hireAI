@@ -51,7 +51,7 @@
  */
 
 const assessmentModel = require('../models/assessment.model');
-const ApiError        = require('../utils/ApiError');
+const ApiError = require('../utils/ApiError');
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,8 +198,22 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
 };
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getAssessmentByJobId(jobId)
+//
+// Lightweight lookup for the job detail page.
+// Returns { id, title, time_limit_minutes } or null when no assessment exists.
+// The frontend uses null as a signal to hide the "Take Assessment" button.
+// ─────────────────────────────────────────────────────────────────────────────
+const getAssessmentByJobId = async (jobId) => {
+    const assessment = await assessmentModel.findAssessmentByJobId(jobId);
+    return assessment ?? null; // normalise undefined → null for consistent JSON
+};
+
+
 module.exports = {
     createAssessment,
     getAssessment,
     submitAssessment,
+    getAssessmentByJobId,
 };

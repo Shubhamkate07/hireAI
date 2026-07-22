@@ -8,7 +8,9 @@ const userRoutes            = require('./routes/user.routes');
 const jobRoutes             = require('./routes/job.routes');
 const applicationRoutes     = require('./routes/application.routes');     // /api/jobs/:jobId/apply|applications
 const myApplicationRoutes   = require('./routes/my.application.routes');  // /api/applications/my
-const assessmentRoutes      = require('./routes/assessment.routes');       // /api/jobs/:jobId/assessment
+const assessmentRoutes      = require('./routes/assessment.routes');       // /api/assessments
+const recruiterRoutes       = require('./routes/recruiter.routes');        // /api/recruiter
+const notificationRoutes    = require('./routes/notification.routes');     // /api/notifications
 
 const cookieParser = require("cookie-parser");
 
@@ -52,6 +54,16 @@ app.use('/api/applications', myApplicationRoutes);
 // GET  /api/assessments/:id          — fetch assessment + questions (role-aware)
 // POST /api/assessments/:id/submit   — candidate submits answers, server scores
 app.use('/api/assessments', assessmentRoutes);
+
+// GET   /api/recruiter/jobs                             — recruiter's jobs + application count
+// GET   /api/recruiter/jobs/:jobId/applications         — applicants for a job
+// PATCH /api/recruiter/applications/:id/status          — move candidate through pipeline
+app.use('/api/recruiter', recruiterRoutes);
+
+// GET   /api/notifications           — current user's notifications
+// PATCH /api/notifications/read-all  — mark all read
+// PATCH /api/notifications/:id/read  — mark one read
+app.use('/api/notifications', notificationRoutes);
 
 
 // server health check api

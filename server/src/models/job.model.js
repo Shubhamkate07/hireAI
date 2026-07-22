@@ -273,6 +273,40 @@ const findJobsByUserId = async (userId) => {
 
 };
 
+// ─── Get a recruiter's jobs WITH application count ────────────────────────────
+// One SQL query does everything using LEFT JOIN + GROUP BY + COUNT.
+//
+// WHY LEFT JOIN?
+//   A regular JOIN would drop jobs with zero applications.
+//   LEFT JOIN keeps every job and sets COUNT = 0 when there are none.
+//
+// WHY GROUP BY j.id?
+//   COUNT(a.id) collapses many application rows into one job row.
+//   Without GROUP BY, MySQL would return one row per application.
+const findJobsWithApplicationCount = async (recruiterId) => {
+
+   const [rows] = await pool.query(
+      `SELECT
+          j.id,
+          j.title,
+          j.company,
+          j.location,
+          j.job_type,
+          j.status,
+          j.created_at,
+          COUNT(a.id) AS application_count
+       FROM jobs j
+       LEFT JOIN applications a ON a.job_id = j.id
+       WHERE j.posted_by = ?
+       GROUP BY j.id
+       ORDER BY j.created_at DESC`,
+      [recruiterId]
+   );
+
+   return rows;
+
+};
+
 module.exports = {
    createJob,
    findJobById,
@@ -281,4 +315,5 @@ module.exports = {
    updateJob,
    deleteJob,
    findJobsByUserId,
+   findJobsWithApplicationCount,
 };

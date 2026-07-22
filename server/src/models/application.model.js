@@ -68,16 +68,31 @@ const findApplicationsByCandidate = async (candidateId) => {
 
 };
 
-// ─── Update the status of an application ─────────────────────────────────────
-// e.g. recruiter moves it from 'applied' → 'shortlisted'
-const updateApplicationStatus = async (applicationId, status) => {
+// ─── Find a single application by its primary key ────────────────────────────
+// Returns the full row including candidate_id, job_id, and current status.
+// Used by the recruiter service to verify ownership before updating.
+const findById = async (applicationId) => {
 
-    await pool.query(
-        `UPDATE applications SET status = ? WHERE id = ?`,
-        [status, applicationId]
+    const [rows] = await pool.query(
+        `SELECT * FROM applications WHERE id = ?`,
+        [applicationId]
     );
 
-    // Return the updated row
+    return rows[0]; // undefined if not found
+
+};
+
+// ─── Update the status (and optional notes) of an application ─────────────────
+// `notes` is an optional text field the recruiter can add during the transition.
+// The notes column is added via: ALTER TABLE applications ADD COLUMN notes TEXT NULL
+const updateApplicationStatus = async (applicationId, status, notes = null) => {
+
+    await pool.query(
+        `UPDATE applications SET status = ?, notes = ? WHERE id = ?`,
+        [status, notes, applicationId]
+    );
+
+    // Return the updated row so the caller has the latest data
     const [rows] = await pool.query(
         `SELECT * FROM applications WHERE id = ?`,
         [applicationId]
@@ -89,6 +104,7 @@ const updateApplicationStatus = async (applicationId, status) => {
 
 module.exports = {
     createApplication,
+    findById,
     findApplicationsByJob,
     findApplicationsByCandidate,
     updateApplicationStatus,

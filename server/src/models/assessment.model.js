@@ -52,6 +52,24 @@ const findAssessmentById = async (id) => {
 };
 
 
+// ─── findAssessmentByJobId ────────────────────────────────────────────────────
+// Lightweight lookup used by the job detail page to determine whether to show
+// the "Take Assessment" button. Returns only the fields the frontend needs.
+// Returns undefined when no assessment is linked to this job.
+const findAssessmentByJobId = async (jobId) => {
+
+    const [rows] = await pool.query(
+        `SELECT id, title, time_limit_minutes
+         FROM assessments
+         WHERE job_id = ?
+         LIMIT 1`,
+        [jobId]
+    );
+
+    return rows[0]; // undefined if no assessment for this job
+};
+
+
 // ─── findAssessmentWithQuestions ──────────────────────────────────────────────
 // Fetches an assessment + ALL its questions in one JOIN.
 // NOTE: correct_answer IS included here — the service layer decides
@@ -217,6 +235,7 @@ module.exports = {
     // assessments
     createAssessment,
     findAssessmentById,
+    findAssessmentByJobId,
     findAssessmentWithQuestions,
     // questions
     createQuestion,

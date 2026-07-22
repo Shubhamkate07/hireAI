@@ -82,7 +82,9 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024, // 5 MB in bytes
+        // Read from env so ops can tune without a code deploy.
+        // Falls back to 5 MB if the variable is not set.
+        fileSize: (parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 5) * 1024 * 1024,
     },
 });
 

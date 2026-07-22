@@ -26,9 +26,9 @@
  * ============================================================
  */
 
-const jobModel  = require("../models/job.model");
-const ApiError  = require("../utils/ApiError");
-const redis     = require("../config/redis");
+const jobModel = require('../models/job.model');
+const ApiError = require('../utils/ApiError');
+const redis    = require('../config/redis');
 
 // ─── Cache key prefix ────────────────────────────────────────────────────────
 // All job list cache entries start with 'jobs:list:'.
@@ -56,7 +56,9 @@ const invalidateJobsCache = async () => {
     const keys = await redis.keys(`${CACHE_PREFIX}*`);
     if (keys.length > 0) {
         await redis.del(...keys);
-        console.log(`🗑️  Cache invalidated: deleted ${keys.length} key(s)`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`🗑️  Cache invalidated: deleted ${keys.length} key(s)`);
+        }
     }
 };
 
@@ -118,12 +120,16 @@ const findJobs = async (
     const cached = await redis.get(cacheKey);
     if (cached) {
         // CACHE HIT — return immediately, no DB query needed
-        console.log(`⚡ Cache HIT for key: ${cacheKey}`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`⚡ Cache HIT for key: ${cacheKey}`);
+        }
         return JSON.parse(cached);
     }
 
     // ── STEP 3: Cache miss — query the database ───────────────────────────────
-    console.log(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
+    }
     const [jobs, total] = await Promise.all([
         jobModel.findAllJobs(offset, limitNum, filters),
         jobModel.getJobCount(status, job_type, location, search),
@@ -143,7 +149,9 @@ const findJobs = async (
     // 'EX' means "expire after X seconds". After 60s, Redis auto-deletes this
     // key even if we forget to invalidate — a safety net against stale data.
     await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
-    console.log(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
+    }
 
     return result;
 };
@@ -154,7 +162,7 @@ const findJobById = async (id) => {
     const job = await jobModel.findJobById(id);
 
     if (!job) {
-        throw new ApiError(404, "Job not found");
+        throw new ApiError(404, 'Job not found');
     }
 
     return job;

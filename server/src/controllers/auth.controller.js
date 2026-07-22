@@ -8,9 +8,8 @@ const register = async (req,res,next)=>{
 try{
     const {name, email, password, role} = req.body;
 
-    const user= await authService.registerUser(name, email, password, role);
-    console.log(user);
-    
+    const user = await authService.registerUser(name, email, password, role);
+
     return res.status(201).json(
         new ApiResponse(
         201,

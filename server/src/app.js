@@ -11,6 +11,7 @@ const myApplicationRoutes   = require('./routes/my.application.routes');  // /ap
 const assessmentRoutes      = require('./routes/assessment.routes');       // /api/assessments
 const recruiterRoutes       = require('./routes/recruiter.routes');        // /api/recruiter
 const notificationRoutes    = require('./routes/notification.routes');     // /api/notifications
+const sseRoutes             = require('./routes/sse.routes');               // /api/sse
 
 const cookieParser = require("cookie-parser");
 
@@ -64,6 +65,11 @@ app.use('/api/recruiter', recruiterRoutes);
 // PATCH /api/notifications/read-all  — mark all read
 // PATCH /api/notifications/:id/read  — mark one read
 app.use('/api/notifications', notificationRoutes);
+
+// GET /api/sse/connect — persistent SSE stream (auth required)
+// IMPORTANT: Nginx needs proxy_buffering off for this location.
+// See nginx.conf notes in docs/.
+app.use('/api/sse', sseRoutes);
 
 
 // server health check api

@@ -1,0 +1,278 @@
+/* ============================================================
+   NotificationBell.css — Styles for the notification bell
+   ============================================================ */
+
+/* ── Wrapper ─────────────────────────────────────────────────────────────── */
+.notif-bell-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ── Bell button ─────────────────────────────────────────────────────────── */
+.notif-bell-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    color: #e2e8f0;
+}
+
+.notif-bell-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+.notif-bell-btn:active {
+    transform: translateY(0);
+}
+
+/* ── Bell SVG icon ────────────────────────────────────────────────────────── */
+.notif-bell-icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* ── Unread count badge (red dot with number) ────────────────────────────── */
+.notif-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #0f172a; /* matches dark navbar bg */
+    line-height: 1;
+    animation: badge-pop 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+@keyframes badge-pop {
+    0%   { transform: scale(0); opacity: 0; }
+    80%  { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── SSE alive dot (small green dot in corner) ───────────────────────────── */
+.notif-sse-dot {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 1px solid #0f172a;
+    animation: sse-pulse 2s ease-in-out infinite;
+}
+
+@keyframes sse-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+
+/* ── Dropdown panel ──────────────────────────────────────────────────────── */
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 360px;
+    max-height: 480px;
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.3),
+        0 20px 40px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: dropdown-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdown-in {
+    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Dropdown header ─────────────────────────────────────────────────────── */
+.notif-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.notif-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.notif-mark-all-btn {
+    font-size: 12px;
+    font-weight: 600;
+    color: #818cf8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.notif-mark-all-btn:hover {
+    background: rgba(129, 140, 248, 0.1);
+    color: #a5b4fc;
+}
+
+/* ── Scrollable list ─────────────────────────────────────────────────────── */
+.notif-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+}
+
+.notif-list::-webkit-scrollbar {
+    width: 4px;
+}
+.notif-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.notif-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.notif-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 36px 20px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.notif-empty-icon {
+    font-size: 32px;
+    opacity: 0.5;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────────────── */
+.notif-loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #818cf8;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Individual notification item ────────────────────────────────────────── */
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border-radius: 0;
+}
+
+.notif-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.notif-item--unread {
+    background: rgba(129, 140, 248, 0.05);
+}
+
+.notif-item--read {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.notif-item--read:hover {
+    background: transparent;
+}
+
+/* ── Left column: unread indicator dot ──────────────────────────────────── */
+.notif-item-dot-col {
+    width: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 6px;
+    flex-shrink: 0;
+}
+
+.notif-item-dot {
+    width: 8px;
+    height: 8px;
+    background: #818cf8;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: badge-pop 0.3s ease;
+}
+
+/* ── Notification content ────────────────────────────────────────────────── */
+.notif-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin: 0 0 4px;
+    line-height: 1.4;
+}
+
+.notif-item--read .notif-item-title {
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.notif-item-msg {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0 0 6px;
+    line-height: 1.5;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.notif-item-time {
+    font-size: 11px;
+    color: #475569;
+    font-weight: 500;
+}

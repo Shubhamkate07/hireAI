@@ -12,6 +12,7 @@ const assessmentRoutes      = require('./routes/assessment.routes');       // /a
 const recruiterRoutes       = require('./routes/recruiter.routes');        // /api/recruiter
 const notificationRoutes    = require('./routes/notification.routes');     // /api/notifications
 const sseRoutes             = require('./routes/sse.routes');               // /api/sse
+const analyticsRoutes       = require('./routes/analytics.routes');         // /api/analytics
 
 const cookieParser = require("cookie-parser");
 
@@ -70,6 +71,9 @@ app.use('/api/notifications', notificationRoutes);
 // IMPORTANT: Nginx needs proxy_buffering off for this location.
 // See nginx.conf notes in docs/.
 app.use('/api/sse', sseRoutes);
+
+// GET /api/analytics/... — analytics dashboard endpoints
+app.use('/api/analytics', analyticsRoutes);
 
 
 // server health check api

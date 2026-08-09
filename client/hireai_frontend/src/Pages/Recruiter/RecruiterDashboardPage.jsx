@@ -60,6 +60,7 @@ const RecruiterDashboardPage = () => {
                 <div className="nav-actions">
                     <Link to="/dashboard" className="nav-link">Dashboard</Link>
                     <Link to="/jobs" className="nav-link">Browse Jobs</Link>
+                    <Link to="/recruiter/analytics" className="nav-link" style={{ color: 'var(--color-accent)' }}>📊 Analytics</Link>
                     <NotificationBell />
                     <div className="user-profile">
                         <span className="user-name">{user?.name}</span>

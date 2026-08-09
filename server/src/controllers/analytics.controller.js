@@ -46,8 +46,39 @@ const getPlatformStats = async (req, res, next) => {
     }
 };
 
+// ─── GET /api/analytics/assessments/:assessmentId/leaderboard ─────────────────
+// Returns top-20 ranked candidates for a given assessment using RANK() OVER.
+const getAssessmentLeaderboard = async (req, res, next) => {
+    try {
+        const leaderboard = await analyticsService.getAssessmentLeaderboard(
+            req.params.assessmentId
+        );
+        return res.status(200).json(
+            new ApiResponse(200, leaderboard, 'Assessment leaderboard fetched successfully')
+        );
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─── GET /api/analytics/recruiter/hiring-speed ────────────────────────────────
+// Returns avg/min/max DATEDIFF days-to-decision per job for the recruiter.
+const getRecruiterHiringSpeed = async (req, res, next) => {
+    try {
+        const hiringSpeed = await analyticsService.getHiringSpeed(req.user.id);
+        return res.status(200).json(
+            new ApiResponse(200, hiringSpeed, 'Hiring speed analytics fetched successfully')
+        );
+    } catch (err) {
+        next(err);
+    }
+};
+
+
 module.exports = {
     getRecruiterSummary,
     getRecruiterJobApplications,
     getPlatformStats,
+    getAssessmentLeaderboard,
+    getRecruiterHiringSpeed,
 };

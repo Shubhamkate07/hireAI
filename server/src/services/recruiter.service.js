@@ -30,6 +30,16 @@ const jobModel            = require('../models/job.model');
 const ApiError            = require('../utils/ApiError');
 const notificationService = require('./notification.service');
 
+// ── Lazy-load sseService to avoid circular dependency ────────────────────────
+// recruiter.service → sse.service is a new import. Using lazy-require (inside
+// the function body) mirrors the same pattern in notification.service.js and
+// ensures both modules are fully loaded before either accesses the other.
+let _sseService;
+const getSseService = () => {
+    if (!_sseService) _sseService = require('./sse.service');
+    return _sseService;
+};
+
 // ─── State Machine ────────────────────────────────────────────────────────────
 // Each key = a valid current status.
 // Its value = the list of statuses it is allowed to move TO.
@@ -125,6 +135,16 @@ const updateApplicationStatus = async (applicationId, recruiterId, newStatus, no
         applicationId,                                     // reference_id (polymorphic)
         'application'                                      // reference_type (polymorphic)
     ).catch(console.error); // log any failure silently, don't crash
+
+    // ── Step 5b: Push analytics_updated to the RECRUITER via SSE ────────────
+    // Only fire when a candidate is hired — that's the event that changes
+    // aggregate analytics (total hired, hiring speed, leaderboard rank, etc.).
+    // This is ALSO fire-and-forget: the recruiter gets their 200 response
+    // immediately, and their dashboard refreshes in real time if they're online.
+    // If they're not connected, sendToUser is a no-op (safe to call always).
+    if (newStatus === 'hired') {
+        getSseService().sendToUser(recruiterId, { type: 'analytics_updated' });
+    }
 
     // ── Step 6: Return the full updated application object ──────────────────
     return updatedApplication;

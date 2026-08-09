@@ -187,14 +187,30 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
 
     const totalPossible = questions.reduce((sum, q) => sum + q.points, 0);
 
-    // ── Persist the attempt ────────────────────────────────────────────────────
-    // INTERVIEW Q3: submitted_answers stored as JSON (one INSERT, simple read-back)
-    // INTERVIEW Q4: if two concurrent requests both passed the guard above,
-    //   the UNIQUE KEY (assessment_id, candidate_id) on the DB table will reject
-    //   the second INSERT with ER_DUP_ENTRY — caught by the global error handler.
+    // ── INTERVIEW Q4: Double-submission guard (Layer 2 — DB UNIQUE KEY handles races) ──
+    // If two concurrent requests both passed the guard above before either inserted,
+    // the DB UNIQUE KEY on (assessment_id, candidate_id) rejects the second INSERT.
     await assessmentModel.createAttempt(assessmentId, candidateId, score, submittedAnswers);
 
+    // ── Task 4: Invalidate the leaderboard Redis cache for this assessment ────
+    // WHY: RANK() OVER (...) is now stale — this new score may change rankings.
+    // DEL forces a Cache MISS on the next leaderboard fetch, so RANK() re-runs
+    // against fresh data. This pairs with the 2-minute TTL: even without explicit
+    // invalidation the cache would expire, but DEL guarantees immediate freshness
+    // right after submission — the moment it matters most.
+    try {
+        const redis = require('../config/redis');
+        await redis.del(`analytics:leaderboard:${assessmentId}`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`🗑️  Leaderboard cache invalidated for assessment ${assessmentId}`);
+        }
+    } catch (err) {
+        // Non-fatal: if Redis is down, the TTL will expire naturally.
+        console.error('Redis leaderboard cache invalidation error:', err.message);
+    }
+
     return { score, totalPossible };
+
 };
 
 

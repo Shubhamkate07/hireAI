@@ -17,6 +17,7 @@ const JobDetailPage         = lazy(() => import('./Pages/JobDetailPage/JobDetail
 const AssessmentPage        = lazy(() => import('./Pages/Assessment/AssessmentPage'))
 const RecruiterDashboardPage = lazy(() => import('./Pages/Recruiter/RecruiterDashboardPage'))
 const ApplicantPipelinePage  = lazy(() => import('./Pages/Recruiter/ApplicantPipelinePage'))
+const AnalyticsDashboard     = lazy(() => import('./Pages/Recruiter/AnalyticsDashboard'))
 
 const App = () => {
   return (
@@ -89,6 +90,14 @@ const App = () => {
               element={
                 <ErrorBoundary>
                   <ApplicantPipelinePage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="/recruiter/analytics"
+              element={
+                <ErrorBoundary>
+                  <AnalyticsDashboard />
                 </ErrorBoundary>
               }
             />

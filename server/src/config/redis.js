@@ -19,15 +19,16 @@
  * ============================================================
  */
 
-const Redis = require('ioredis');
+const Redis  = require('ioredis');
+const config = require('./env.config');
 
 const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
+    host: config.redis.host,
+    port: config.redis.port,
 
-  // If Redis is down, don't crash the app — just log the error.
-  // The service layer handles the case where cache is unavailable.
-  lazyConnect: false,
+    // If Redis is down, don't crash the app — just log the error.
+    // The service layer handles the case where cache is unavailable.
+    lazyConnect: false,
 });
 
 // ── Connection lifecycle logs ─────────────────────────────────────────────────

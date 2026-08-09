@@ -18,6 +18,7 @@ const AssessmentPage        = lazy(() => import('./Pages/Assessment/AssessmentPa
 const RecruiterDashboardPage = lazy(() => import('./Pages/Recruiter/RecruiterDashboardPage'))
 const ApplicantPipelinePage  = lazy(() => import('./Pages/Recruiter/ApplicantPipelinePage'))
 const AnalyticsDashboard     = lazy(() => import('./Pages/Recruiter/AnalyticsDashboard'))
+const AdminDashboard         = lazy(() => import('./Pages/Admin/AdminDashboard'))
 
 const App = () => {
   return (
@@ -98,6 +99,20 @@ const App = () => {
               element={
                 <ErrorBoundary>
                   <AnalyticsDashboard />
+                </ErrorBoundary>
+              }
+            />
+          </Route>
+
+          {/* Admin Role-Protected Route (Exercise 5) */}
+          {/* SECURITY: ProtectedRoute requiredRole="admin" is Layer 1. */}
+          {/* Layer 2 = rbacMiddleware(['admin']) on every backend endpoint. */}
+          <Route element={<ProtectedRoute requiredRole="admin" />}>
+            <Route
+              path="/admin"
+              element={
+                <ErrorBoundary>
+                  <AdminDashboard />
                 </ErrorBoundary>
               }
             />

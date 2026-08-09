@@ -17,7 +17,8 @@
  */
 
 const analyticsModel = require('../models/analytics.model');
-const redis = require('../config/redis');
+const redis          = require('../config/redis');
+const config         = require('../config/env.config');
 
 const CACHE_TTL_SECONDS      = 300; // 5 minutes — analytics summary & hiring speed
 const LEADERBOARD_TTL_SECONDS = 120; // 2 minutes — leaderboard changes with every new attempt
@@ -29,7 +30,7 @@ const getRecruiterSummary = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (process.env.NODE_ENV === 'development') {
+            if (config.isDev) {
                 console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
             }
             return JSON.parse(cached);
@@ -38,7 +39,7 @@ const getRecruiterSummary = async (recruiterId) => {
         console.error('Redis read error in getRecruiterSummary:', err.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
     }
 
@@ -60,7 +61,7 @@ const getRecruiterJobApplications = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (process.env.NODE_ENV === 'development') {
+            if (config.isDev) {
                 console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
             }
             return JSON.parse(cached);
@@ -69,7 +70,7 @@ const getRecruiterJobApplications = async (recruiterId) => {
         console.error('Redis read error in getRecruiterJobApplications:', err.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
     }
 
@@ -91,7 +92,7 @@ const getPlatformStats = async () => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (process.env.NODE_ENV === 'development') {
+            if (config.isDev) {
                 console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
             }
             return JSON.parse(cached);
@@ -100,7 +101,7 @@ const getPlatformStats = async () => {
         console.error('Redis read error in getPlatformStats:', err.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
     }
 
@@ -131,7 +132,7 @@ const getAssessmentLeaderboard = async (assessmentId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (process.env.NODE_ENV === 'development') {
+            if (config.isDev) {
                 console.log(`⚡ Leaderboard Cache HIT: ${cacheKey}`);
             }
             return JSON.parse(cached);
@@ -140,7 +141,7 @@ const getAssessmentLeaderboard = async (assessmentId) => {
         console.error('Redis read error in getAssessmentLeaderboard:', err.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Leaderboard Cache MISS — querying DB: ${cacheKey}`);
     }
 
@@ -164,7 +165,7 @@ const getHiringSpeed = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (process.env.NODE_ENV === 'development') {
+            if (config.isDev) {
                 console.log(`⚡ Hiring Speed Cache HIT: ${cacheKey}`);
             }
             return JSON.parse(cached);
@@ -173,7 +174,7 @@ const getHiringSpeed = async (recruiterId) => {
         console.error('Redis read error in getHiringSpeed:', err.message);
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Hiring Speed Cache MISS — querying DB: ${cacheKey}`);
     }
 

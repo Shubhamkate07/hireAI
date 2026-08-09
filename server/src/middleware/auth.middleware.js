@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-
+const jwt    = require('jsonwebtoken');
+const config  = require('../config/env.config');
 const ApiError = require('../utils/ApiError');
 
 const authMiddleware=(req,res,next)=>{
@@ -14,9 +14,7 @@ const authMiddleware=(req,res,next)=>{
             )
         }
 
-        const decoded= jwt.verify(token,
-            process.env.JWT_SECRET
-        )
+        const decoded = jwt.verify(token, config.jwt.secret);
         req.user= decoded;
         next();
     }catch(err){

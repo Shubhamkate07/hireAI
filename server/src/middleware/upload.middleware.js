@@ -38,8 +38,9 @@
  * Both are caught by the global error handler in app.js.
  * ============================================================
  */
-const path   = require('path');
 const multer = require('multer');
+const path   = require('path');
+const config = require('../config/env.config');
 
 // ─── 1. Storage: where and how to save ───────────────────────────────────────
 const storage = multer.diskStorage({
@@ -82,9 +83,8 @@ const upload = multer({
     storage,
     fileFilter,
     limits: {
-        // Read from env so ops can tune without a code deploy.
-        // Falls back to 5 MB if the variable is not set.
-        fileSize: (parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 5) * 1024 * 1024,
+        // Read from config so ops can tune via env var without a code deploy.
+        fileSize: config.upload.maxSizeMb * 1024 * 1024,
     },
 });
 

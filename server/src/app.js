@@ -3,6 +3,7 @@ const cors= require('cors');
 const helmet= require('helmet');
 const morgan= require('morgan');
 const multer = require('multer'); // needed only for instanceof check in error handler
+const config = require('./config/env.config');
 const authRoutes            = require('./routes/auth.routes');
 const userRoutes            = require('./routes/user.routes');
 const jobRoutes             = require('./routes/job.routes');
@@ -24,9 +25,31 @@ const loggerMiddleware =
 
 
 const app= express();
+
+// ── Production hardening (Task 3) ─────────────────────────────────────────────
+// trust proxy: tells Express the real client IP is in X-Forwarded-For header
+//   put there by Nginx. Without this, req.ip shows the Nginx container IP.
+//   Required for: rate limiting by IP, secure cookie behaviour, logging.
+// x-powered-by: Express advertises itself by default. Disabling it removes
+//   a free hint to attackers about your stack — minor but zero-cost hardening.
+if (config.isProd) {
+    app.set('trust proxy', 1);
+    app.disable('x-powered-by');
+}
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// corsOrigins comes from CORS_ORIGINS env var (comma-separated) or defaults
+// to localhost:5173 in development. In production, set:
+//   CORS_ORIGINS=https://yourdomain.com
+// WHY this must change between environments:
+//   Allowing localhost in production lets any local machine call your API.
+//   The origin header is set by the browser — it IS enforceable for browser
+//   clients, but not for curl/Postman (which don't send CORS preflight).
+//   Together with httpOnly cookies and CSRF mitigation, strict CORS origin
+//   prevents CSRF from malicious browser origins.
 app.use(
     cors({
-        origin: "http://localhost:5173",
+        origin: config.corsOrigins,
         credentials: true
     })
 );app.use(helmet());

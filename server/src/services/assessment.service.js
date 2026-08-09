@@ -51,7 +51,8 @@
  */
 
 const assessmentModel = require('../models/assessment.model');
-const ApiError = require('../utils/ApiError');
+const ApiError        = require('../utils/ApiError');
+const config          = require('../config/env.config');
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,7 +202,7 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
     try {
         const redis = require('../config/redis');
         await redis.del(`analytics:leaderboard:${assessmentId}`);
-        if (process.env.NODE_ENV === 'development') {
+        if (config.isDev) {
             console.log(`🗑️  Leaderboard cache invalidated for assessment ${assessmentId}`);
         }
     } catch (err) {

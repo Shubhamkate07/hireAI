@@ -29,6 +29,7 @@
 const jobModel = require('../models/job.model');
 const ApiError = require('../utils/ApiError');
 const redis    = require('../config/redis');
+const config   = require('../config/env.config');
 
 // ─── Cache key prefix ────────────────────────────────────────────────────────
 // All job list cache entries start with 'jobs:list:'.
@@ -56,7 +57,7 @@ const invalidateJobsCache = async () => {
     const keys = await redis.keys(`${CACHE_PREFIX}*`);
     if (keys.length > 0) {
         await redis.del(...keys);
-        if (process.env.NODE_ENV === 'development') {
+        if (config.isDev) {
             console.log(`🗑️  Cache invalidated: deleted ${keys.length} key(s)`);
         }
     }
@@ -120,14 +121,14 @@ const findJobs = async (
     const cached = await redis.get(cacheKey);
     if (cached) {
         // CACHE HIT — return immediately, no DB query needed
-        if (process.env.NODE_ENV === 'development') {
+        if (config.isDev) {
             console.log(`⚡ Cache HIT for key: ${cacheKey}`);
         }
         return JSON.parse(cached);
     }
 
     // ── STEP 3: Cache miss — query the database ───────────────────────────────
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
     }
     const [jobs, total] = await Promise.all([
@@ -149,7 +150,7 @@ const findJobs = async (
     // 'EX' means "expire after X seconds". After 60s, Redis auto-deletes this
     // key even if we forget to invalidate — a safety net against stale data.
     await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
-    if (process.env.NODE_ENV === 'development') {
+    if (config.isDev) {
         console.log(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
     }
 

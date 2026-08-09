@@ -36,6 +36,19 @@ const Dashboard = () => {
                     <Link to="/jobs"    className="nav-link">Jobs</Link>
                     <Link to="/profile" className="nav-link">Profile</Link>
 
+                    {/* Admin link — UX-only visibility gate.
+                        Security enforced by ProtectedRoute + backend RBAC. */}
+                    {user?.role === 'admin' && (
+                        <Link
+                            to="/admin"
+                            id="admin-nav-link"
+                            className="nav-link"
+                            style={{ color: '#f87171', fontWeight: 700 }}
+                        >
+                            ⚙️ Admin
+                        </Link>
+                    )}
+
                     {/* 🔔 Notification Bell — SSE connects here on mount */}
                     <NotificationBell />
 

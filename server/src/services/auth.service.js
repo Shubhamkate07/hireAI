@@ -1,12 +1,11 @@
-const dotenv= require('dotenv')
-dotenv.config();
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken')
-const crypto = require("crypto");
+const jwt    = require('jsonwebtoken');
+const crypto = require('crypto');
 
-const ApiError = require('../utils/ApiError')
-const userModel = require('../models/user.model')
-const refreshTokenModel= require('../models/refreshToken.model')
+const config             = require('../config/env.config');
+const ApiError           = require('../utils/ApiError');
+const userModel          = require('../models/user.model');
+const refreshTokenModel  = require('../models/refreshToken.model');
 
 const registerUser = async (name, email, password, role = "candidate") => {
 
@@ -58,11 +57,11 @@ const loginUser = async (email, password) => {
     const accessToken = jwt.sign(
         {
             id: user.id,
-            role:user.role
+            role: user.role
         },
-        process.env.JWT_SECRET,
+        config.jwt.secret,
         {
-            expiresIn: process.env.JWT_EXPIRES_IN
+            expiresIn: config.jwt.expiresIn
         }
     );
 
@@ -71,10 +70,9 @@ const loginUser = async (email, password) => {
       {
         id: user.id
       },
-      process.env.REFRESH_TOKEN_SECRET,
+      config.jwt.refreshSecret,
       {
-        expiresIn:
-          process.env.REFRESH_TOKEN_EXPIRES_IN
+        expiresIn: config.jwt.refreshExpiresIn
       }
     );
 
@@ -152,7 +150,7 @@ const refreshAccessToken = async (refreshToken) => {
    const decoded =
       jwt.verify(
          refreshToken,
-         process.env.REFRESH_TOKEN_SECRET
+         config.jwt.refreshSecret
       );
 
    // Fetch user to get the current role — if role changed after
@@ -169,10 +167,9 @@ const refreshAccessToken = async (refreshToken) => {
             id: user.id,
             role: user.role
          },
-         process.env.JWT_SECRET,
+         config.jwt.secret,
          {
-            expiresIn:
-             process.env.JWT_EXPIRES_IN
+            expiresIn: config.jwt.expiresIn
          }
       );
 

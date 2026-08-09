@@ -1,8 +1,9 @@
 
 const authService = require('../services/auth.service');
-const userModel = require('../models/user.model');
+const userModel   = require('../models/user.model');
 const ApiResponse = require('../utils/ApiResponse');
-const ApiError = require('../utils/ApiError');
+const ApiError    = require('../utils/ApiError');
+const config      = require('../config/env.config');
 
 const register = async (req,res,next)=>{
 try{
@@ -34,7 +35,7 @@ const login = async (req,res,next)=>{
       result.accessToken,
       {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: config.isProd,
         sameSite: "strict",
         maxAge: 15 * 60 * 1000
       }
@@ -45,7 +46,7 @@ const login = async (req,res,next)=>{
       result.refreshToken,
       {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: config.isProd,
         sameSite: "strict",
         maxAge: 7 * 24 * 60 * 60 * 1000
       }
@@ -86,7 +87,7 @@ const refreshToken = async (req,res,next)=>{
          result.accessToken,
          {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: config.isProd,
             sameSite: "strict",
             maxAge:
               15 * 60 * 1000

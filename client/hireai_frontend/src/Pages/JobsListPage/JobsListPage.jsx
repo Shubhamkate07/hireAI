@@ -1,38 +1,29 @@
 /**
  * ============================================================
  * JobsListPage.jsx — Steps 2, 3, 4 + Search with useDebounce
+ *                    + useTransition (React 18)
  * ============================================================
  *
- * STEP 2 — useQuery with loading skeleton + error state
- * STEP 3 — Pagination: Previous/Next update `page` state
- *           → changing `page` changes the queryKey → refetches
- * STEP 4 — Filters (status, job_type) are part of the queryKey
- *           → changing a filter resets to page 1 and refetches
+ * STEP 5 (Exercise 1) — useTransition
+ *   useTransition marks a state update as NON-URGENT. React can:
+ *     • interrupt the re-render triggered by that update
+ *     • prioritise urgent input events (typing) instead
+ *     • complete the deferred update when the browser is free
+ *   isPending = true while the transition is still computing.
  *
- * STEP 5 — Search with useDebounce (today's new feature)
- *           Raw input: `search` state — updates on every keystroke (no lag)
- *           Debounced:  `debouncedSearch` — updates 400ms after typing stops
- *           queryKey uses `debouncedSearch` → refetch only fires after pause
+ *   Applied here to: filter selects, page buttons, clear-all.
+ *   NOT applied to: the search <input> value itself (that must stay
+ *   urgent so the cursor doesn't lag), only to setFilters/setPage.
  *
- * ─── WHY TWO SEPARATE STATE VALUES FOR SEARCH? ──────────────
- *
- *   search         → controls the <input> value (instant, for UI responsiveness)
- *   debouncedSearch → goes into the queryKey (delayed, prevents excess requests)
- *
- *   The input ALWAYS feels instant to the user.
- *   The network request only fires after they've paused typing.
- *
- * ─── HOW QUERY KEY DRIVES EVERYTHING ────────────────────────
- *
- * queryKey: ['jobs', { page, status, job_type, search: debouncedSearch }]
- *
- * When ANY part of the key changes:
- *   • React Query creates a new cache entry
- *   • Triggers a fresh network request
- *   • Shows cached data from the old key while fetching (placeholderData)
+ * EXERCISE 1 ANSWER — what useTransition solves:
+ *   useState alone: every setState triggers a synchronous re-render.
+ *   If re-rendering a large list is expensive, fast filter changes
+ *   (spam-clicking a select) queue up re-renders and freeze the UI.
+ *   useTransition lets React SKIP intermediate renders when a newer
+ *   transition is already pending — only the final state matters.
  * ============================================================
  */
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getJobs } from '../../services/jobService'
@@ -135,25 +126,45 @@ const JobsListPage = () => {
   const totalPages = pagination.totalPages ?? 1
   const hasNextPage = page < totalPages
 
-  // ── Filter change handler ─────────────────────────────────────────────────
+  // ── useTransition — defer non-urgent filter/page updates (Exercise 1) ────
+  //
+  // startTransition(fn): marks all setState calls inside fn as NON-URGENT.
+  // React can postpone these re-renders to avoid blocking user input.
+  // isPending: true while a transition is still computing.
+  //
+  // WHY urgent vs non-urgent?
+  //   Urgent:     the <input> value update → must render immediately so typing feels responsive
+  //   Non-urgent: re-filtering a job list → can wait 1-2 frames; user won't notice a tiny lag
+  //
+  // By wrapping filter/page changes in startTransition, we tell React:
+  //   "If the user changes the filter AGAIN before this render finishes, throw it away."
+  //   This prevents wasted renders when a user rapidly clicks through filter options.
+  const [isPending, startTransition] = useTransition();
+
+  // ── Filter change handler — wrapped in startTransition ─────────────────
   const handleFilterChange = (e) => {
     const { name, value } = e.target
-    setFilters(prev => ({ ...prev, [name]: value }))
-    setPage(1)
+    startTransition(() => {
+      setFilters(prev => ({ ...prev, [name]: value }))
+      setPage(1)
+    })
   }
 
-  // ── Search change handler ─────────────────────────────────────────────────
-  // Only updates the raw `search` state. useDebounce handles the delay.
+  // ── Search change handler ─────────────────────────────────────────────
+  // Search input value itself stays URGENT (not in startTransition).
+  // Only the page reset is deferred — the cursor must never lag.
   const handleSearchChange = (e) => {
-    setSearch(e.target.value)
-    setPage(1)  // Reset to page 1 when search changes
+    setSearch(e.target.value)          // urgent — keeps input responsive
+    startTransition(() => setPage(1)) // non-urgent — page reset can defer
   }
 
-  // ── Clear all filters + search ────────────────────────────────────────────
+  // ── Clear all filters + search ────────────────────────────────────────
   const handleClearAll = () => {
-    setFilters({ status: '', job_type: '' })
     setSearch('')
-    setPage(1)
+    startTransition(() => {
+      setFilters({ status: '', job_type: '' })
+      setPage(1)
+    })
   }
 
   const hasActiveFilters = filters.status || filters.job_type || search
@@ -198,12 +209,20 @@ const JobsListPage = () => {
           </p>
         </div>
 
-        {/* Background-fetch indicator */}
-        {isFetching && !isLoading && (
-          <div style={styles.fetchingBadge}>
-            <div style={styles.fetchingDot} /> Updating…
-          </div>
-        )}
+      {/* ── Background-fetch indicator / Transition pending indicator ────────
+          Two separate signals:
+          • isPending: useTransition is still computing the filter state update
+            (browser is busy but NOT yet fetching — the UI update is deferred)
+          • isFetching && !isLoading: React Query is refetching in the background
+            (network request in flight after the transition completed)
+          We show one or the other, prioritising isPending.
+      ── */}
+      {(isPending || (isFetching && !isLoading)) && (
+        <div style={styles.fetchingBadge}>
+          <div style={styles.fetchingDot} />
+          {isPending ? 'Filtering…' : 'Updating…'}
+        </div>
+      )}
       </div>
 
       {/* ── Filter + Search Bar ───────────────────────────────────────────────
@@ -310,15 +329,32 @@ const JobsListPage = () => {
       {!isLoading && !isError && (
         <>
           {jobs.length === 0 ? (
+            // ── Empty State — Exercise 3 UX polish ─────────────────────────────
+            // A blank list is confusing. Explain WHY it's empty and give a path out.
+            // "No jobs found matching your filters" + "Clear filters" → finished product.
             <div style={styles.emptyState}>
               <div style={styles.emptyIcon}>🔍</div>
               <h3 style={{ color: '#1e293b', margin: '0 0 8px' }}>No jobs found</h3>
-              <p style={{ color: '#64748b', margin: 0 }}>
-                {search
-                  ? `No results for "${search}". Try a different keyword.`
-                  : 'Try adjusting your filters or check back later.'}
+              <p style={{ color: '#64748b', margin: '0 0 1.25rem' }}>
+                {search && (filters.status || filters.job_type)
+                  ? `No "${search}" jobs match your selected filters.`
+                  : search
+                    ? `No results for "${search}". Try a different keyword.`
+                    : filters.status || filters.job_type
+                      ? 'No jobs match your current filters.'
+                      : 'There are no jobs posted yet. Check back later.'}
               </p>
-            </div> 
+              {/* Only show the CTA when there's actually something to clear */}
+              {hasActiveFilters && (
+                <button
+                  id="empty-state-clear-btn"
+                  style={styles.emptyActionBtn}
+                  onClick={handleClearAll}
+                >
+                  ✕ Clear all filters
+                </button>
+              )}
+            </div>
           ) : (
             <div style={{ ...styles.jobList, opacity: isPlaceholderData ? 0.6 : 1, transition: 'opacity 0.2s' }}>
               {jobs.map(job => (
@@ -335,8 +371,8 @@ const JobsListPage = () => {
             <div style={styles.pagination}>
               <button
                 style={page === 1 ? styles.pageButtonDisabled : styles.pageButton}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1 || isFetching}
+                onClick={() => startTransition(() => setPage(p => Math.max(1, p - 1)))}
+                disabled={page === 1 || isFetching || isPending}
               >
                 ← Previous
               </button>
@@ -348,8 +384,8 @@ const JobsListPage = () => {
 
               <button
                 style={!hasNextPage ? styles.pageButtonDisabled : styles.pageButton}
-                onClick={() => setPage(p => p + 1)}
-                disabled={!hasNextPage || isFetching}
+                onClick={() => startTransition(() => setPage(p => p + 1))}
+                disabled={!hasNextPage || isFetching || isPending}
               >
                 Next →
               </button>
@@ -500,6 +536,17 @@ const styles = {
     border: '1px dashed #cbd5e1',
   },
   emptyIcon: { fontSize: '2.5rem', marginBottom: '0.75rem' },
+  emptyActionBtn: {
+    padding: '0.55rem 1.4rem',
+    borderRadius: '8px',
+    border: '1px solid #6366f1',
+    background: '#fff',
+    color: '#6366f1',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'background 0.15s, color 0.15s',
+  },
   pagination: {
     display: 'flex',
     justifyContent: 'center',

@@ -67,6 +67,7 @@ const getAllUsers =
       }
 
       query += `
+         ORDER BY created_at DESC
          LIMIT ?
          OFFSET ?
       `;

@@ -53,7 +53,10 @@ app.use(
         credentials: true
     })
 );app.use(helmet());
-app.use(morgan("dev"));
+// 'dev' = coloured one-liner for local development
+// 'combined' = Apache Common Log Format — machine-readable, suitable for CloudWatch / ELK
+app.use(morgan(config.isDev ? 'dev' : 'combined'));
+
 app.use(express.json());
 app.use(cookieParser());
 

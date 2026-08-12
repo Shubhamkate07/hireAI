@@ -23,6 +23,13 @@ const getUsers =
             recent
          );
 
+      // Defence-in-depth: ensure password_hash never reaches the API response
+      // even if the SQL query is ever widened to SELECT *.
+      const safeUsers = users.map(u => {
+         const { password_hash, ...safe } = u;
+         return safe;
+      });
+
       const total =
          await userModel.getUserCount(
             recent
@@ -34,7 +41,7 @@ const getUsers =
          );
 
       return {
-         users,
+         users: safeUsers,
          total,
          page,
          totalPages

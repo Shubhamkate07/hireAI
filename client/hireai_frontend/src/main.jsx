@@ -38,6 +38,6 @@ createRoot(document.getElementById('root')).render(
         Shows a floating panel (bottom-right) to inspect the cache,
         stale/fresh status, background refetches, and query history.
         Only renders in development — tree-shaken out of production builds. */}
-    <ReactQueryDevtools initialIsOpen={false} />
+    <ReactQueryDevtools initialIsOpen={true} />
   </QueryClientProvider>
 )

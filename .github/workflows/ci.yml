@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [shubham-dev]
+  pull_request:
+    branches: [shubham-dev]
+
+jobs:
+  lint-and-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: cd server && npm ci
+
+      - name: Check for syntax errors
+        run: cd server && node --check src/app.js
+
+      - name: Verify env example file exists
+        run: test -f server/.env.example

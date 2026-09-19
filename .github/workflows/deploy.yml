@@ -15,10 +15,14 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+
           script: |
             cd ~/hireAI
-            git fetch origin main
+
+            git fetch hireai
             git checkout main
-            git pull origin main
+            git reset --hard hireai/main
+
             docker compose up -d --build
+
             docker compose ps

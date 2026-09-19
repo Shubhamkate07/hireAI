@@ -36,8 +36,7 @@
  * ============================================================
  */
 import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
-
+import { Navigate, Routes, Route } from 'react-router-dom'
 import ErrorBoundary  from './Components/ErrorBoundary'
 import PageLoader     from './Components/PageLoader'
 import ProtectedRoute from './Components/ProtectedRoute'
@@ -78,6 +77,8 @@ const App = () => {
         <Routes>
 
           {/* ── Public Routes ─────────────────────────────────────────── */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           <Route path="/login"    element={routeEl(Login)} />
           <Route path="/register" element={routeEl(Register)} />
 

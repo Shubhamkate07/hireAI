@@ -17,22 +17,22 @@
 import { memo } from 'react'
 
 const JOB_TYPE_COLORS = {
-  remote:     { bg: '#eff6ff', text: '#1d4ed8', label: '🌐 Remote' },
-  onsite:     { bg: '#f0fdf4', text: '#15803d', label: '🏢 On-site' },
-  hybrid:     { bg: '#faf5ff', text: '#7e22ce', label: '🔀 Hybrid' },
-  contract:   { bg: '#fff7ed', text: '#c2410c', label: '📝 Contract' },
+  remote: { bg: '#eff6ff', text: '#1d4ed8', label: '🌐 Remote' },
+  onsite: { bg: '#f0fdf4', text: '#15803d', label: '🏢 On-site' },
+  hybrid: { bg: '#faf5ff', text: '#7e22ce', label: '🔀 Hybrid' },
+  contract: { bg: '#fff7ed', text: '#c2410c', label: '📝 Contract' },
   internship: { bg: '#fdf4ff', text: '#a21caf', label: '🎓 Internship' },
 }
 
 const STATUS_COLORS = {
-  open:   { bg: '#dcfce7', text: '#166534' },
+  open: { bg: '#dcfce7', text: '#166534' },
   closed: { bg: '#fee2e2', text: '#991b1b' },
   paused: { bg: '#fef9c3', text: '#854d0e' },
 }
 
-const JobCard = ({ job }) => {
+const JobCard = ({ job, onApply }) => {
   const jobType = JOB_TYPE_COLORS[job.job_type] ?? { bg: '#f1f5f9', text: '#475569', label: job.job_type }
-  const status  = STATUS_COLORS[job.status]     ?? { bg: '#f1f5f9', text: '#475569' }
+  const status = STATUS_COLORS[job.status] ?? { bg: '#f1f5f9', text: '#475569' }
 
   const formatSalary = (min, max) => {
     if (!min && !max) return null
@@ -96,9 +96,16 @@ const JobCard = ({ job }) => {
       )}
 
       {/* Footer */}
-      {postedDate && (
-        <p style={styles.date}>Posted {postedDate}</p>
-      )}
+      <div style={styles.footer}>
+        {postedDate && (
+          <p style={styles.date}>Posted {postedDate}</p>
+        )}
+        {onApply && (
+          <button style={styles.applyBtn} onClick={(e) => { e.preventDefault(); onApply(job); }}>
+            Apply
+          </button>
+        )}
+      </div>
     </article>
   )
 }

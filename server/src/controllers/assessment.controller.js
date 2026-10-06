@@ -57,6 +57,22 @@ const createAssessment = async (req, res, next) => {
     }
 };
 
+const updateAssessment = async (req, res, next) => {
+    try {
+        const assessment = await assessmentService.updateAssessment(
+            req.params.id,
+            req.body,
+            req.user.id
+        );
+
+        return res.status(200).json(
+            new ApiResponse(200, assessment, 'Assessment updated successfully')
+        );
+    } catch (err) {
+        next(err);
+    }
+};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/assessments/:id
@@ -155,6 +171,7 @@ const getAssessmentByJobId = async (req, res, next) => {
 
 module.exports = {
     createAssessment,
+    updateAssessment,
     getAssessment,
     submitAssessment,
     getAssessmentByJobId,

@@ -304,7 +304,7 @@ const JobsListPage = () => {
 
       {/* LOADING: First fetch */}
       {isLoading && (
-        <div style={styles.jobList}>
+        <div style={styles.jobList} data-testid="loading-skeleton">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       )}

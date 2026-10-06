@@ -35,6 +35,15 @@ router.post(
     assessmentController.createAssessment
 );
 
+// ─── PUT /api/assessments/:id ──────────────────────────────────────────────────
+// Only recruiters and admins can update their existing assessments.
+router.put(
+    '/:id',
+    authMiddleware,
+    rbacMiddleware(['recruiter', 'admin']),
+    assessmentController.updateAssessment
+);
+
 
 // ─── GET /api/assessments/by-job/:jobId ──────────────────────────────────────
 // MUST be defined BEFORE /:id to avoid Express matching "by-job" as the :id param.

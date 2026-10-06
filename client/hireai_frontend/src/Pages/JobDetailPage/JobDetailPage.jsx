@@ -607,20 +607,31 @@ const JobDetailPage = () => {
                     </button>
                   )}
 
-                  {/* Take Assessment — only shown when this job has an assessment.
-                      jobAssessment.id is the primary key from the assessments table.
-                      Navigate to /assessments/:id so AssessmentPage can fetch by ID. */}
+                  {/* Take Assessment & Leaderboard buttons — shown when this job has an assessment. */}
                   {jobAssessment && (
-                    <Link
-                      id="take-assessment-btn"
-                      to={`/assessments/${jobAssessment.id}`}
-                      style={styles.assessmentBtn}
-                    >
-                      📝 Take Assessment
-                      <span style={styles.assessmentMeta}>
-                        {jobAssessment.title} · {jobAssessment.time_limit_minutes} min
-                      </span>
-                    </Link>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Link
+                        id="take-assessment-btn"
+                        to={`/assessments/${jobAssessment.id}`}
+                        style={styles.assessmentBtn}
+                      >
+                        📝 Take Assessment
+                        <span style={styles.assessmentMeta}>
+                          {jobAssessment.title} · {jobAssessment.time_limit_minutes} min
+                        </span>
+                      </Link>
+
+                      <Link
+                        id="view-leaderboard-btn"
+                        to={`/assessments/${jobAssessment.id}/leaderboard`}
+                        style={styles.leaderboardBtn}
+                      >
+                        🏆 Leaderboard
+                        <span style={styles.assessmentMeta}>
+                          View candidate rankings
+                        </span>
+                      </Link>
+                    </div>
                   )}
                 </>
               ) : (
@@ -799,6 +810,22 @@ const styles = {
     textDecoration: 'none',
     transition: 'opacity 0.15s, transform 0.15s',
     boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+  },
+  leaderboardBtn: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '3px',
+    padding: '0.7rem 1.5rem',
+    background: 'linear-gradient(135deg, #0f172a, #334155)',
+    color: '#fbbf24',
+    borderRadius: '10px',
+    fontSize: '0.95rem',
+    fontWeight: 700,
+    textDecoration: 'none',
+    transition: 'opacity 0.15s, transform 0.15s',
+    boxShadow: '0 4px 14px rgba(15,23,42,0.25)',
+    border: '1px solid rgba(251,191,36,0.3)',
   },
   assessmentMeta: {
     fontSize: '0.75rem',

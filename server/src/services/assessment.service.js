@@ -194,11 +194,6 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
     await assessmentModel.createAttempt(assessmentId, candidateId, score, submittedAnswers);
 
     // ── Task 4: Invalidate the leaderboard Redis cache for this assessment ────
-    // WHY: RANK() OVER (...) is now stale — this new score may change rankings.
-    // DEL forces a Cache MISS on the next leaderboard fetch, so RANK() re-runs
-    // against fresh data. This pairs with the 2-minute TTL: even without explicit
-    // invalidation the cache would expire, but DEL guarantees immediate freshness
-    // right after submission — the moment it matters most.
     try {
         const redis = require('../config/redis');
         await redis.del(`analytics:leaderboard:${assessmentId}`);
@@ -206,8 +201,25 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
             console.log(`🗑️  Leaderboard cache invalidated for assessment ${assessmentId}`);
         }
     } catch (err) {
-        // Non-fatal: if Redis is down, the TTL will expire naturally.
         console.error('Redis leaderboard cache invalidation error:', err.message);
+    }
+
+    // ── Task 1: Real-time SSE push to all active leaderboard watchers ─────────
+    try {
+        const userModel = require('../models/user.model');
+        const candidate = await userModel.findUserById(candidateId);
+        const sseService = require('./sse.service');
+        sseService.sendToAssessmentWatchers(assessmentId, {
+            type: 'leaderboard_updated',
+            assessmentId: Number(assessmentId),
+            newEntry: {
+                candidateName: candidate?.name || 'Candidate',
+                score,
+                rank: null,
+            },
+        });
+    } catch (err) {
+        console.error('[SSE] Failed sending leaderboard update event:', err.message);
     }
 
     return { score, totalPossible };
@@ -227,9 +239,43 @@ const getAssessmentByJobId = async (jobId) => {
     return assessment ?? null; // normalise undefined → null for consistent JSON
 };
 
+const updateAssessment = async (assessmentId, data, requesterId) => {
+    const existing = await assessmentModel.findAssessmentById(assessmentId);
+    if (!existing) throw new ApiError(404, 'Assessment not found');
+    if (existing.created_by !== requesterId) throw new ApiError(403, 'You do not own this assessment');
+
+    const { title, description, job_id, time_limit_minutes, questions = [] } = data;
+
+    await assessmentModel.updateAssessment(
+        assessmentId,
+        title,
+        description,
+        job_id,
+        time_limit_minutes,
+        requesterId
+    );
+
+    // Replace questions
+    await assessmentModel.deleteQuestionsByAssessmentId(assessmentId);
+
+    for (const q of questions) {
+        await assessmentModel.createQuestion(
+            assessmentId,
+            q.question_text,
+            q.question_type,
+            q.options,
+            q.correct_answer,
+            q.points
+        );
+    }
+
+    return assessmentModel.findAssessmentWithQuestions(assessmentId);
+};
+
 
 module.exports = {
     createAssessment,
+    updateAssessment,
     getAssessment,
     submitAssessment,
     getAssessmentByJobId,

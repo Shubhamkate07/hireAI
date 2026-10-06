@@ -28,3 +28,13 @@ export const getRecruiterJobApplications = async () => {
     const response = await api.get('/analytics/recruiter/applications');
     return response.data;
 };
+
+/**
+ * GET /api/analytics/assessments/:assessmentId/leaderboard
+ * Returns: { assessment_title, leaderboard: [{ rank, candidate_id, candidate_name, score, max_score, percentage, submitted_at }, ...] }
+ */
+export const getAssessmentLeaderboard = async (assessmentId) => {
+    const response = await api.get(`/analytics/assessments/${assessmentId}/leaderboard`);
+    return response.data;
+};
+

@@ -26,3 +26,9 @@ export const updateApplicantStatus = async (applicationId, status, notes = '') =
     });
     return response.data;
 };
+
+// Fetch recruiter's assessments with attempt and question counts
+export const getRecruiterAssessments = async () => {
+    const response = await api.get('/recruiter/assessments');
+    return response.data;
+};

@@ -36,6 +36,28 @@ const Dashboard = () => {
                     <Link to="/jobs"    className="nav-link">Jobs</Link>
                     <Link to="/profile" className="nav-link">Profile</Link>
 
+                    {/* Recruiter Links — visible for recruiters & admins */}
+                    {(user?.role === 'recruiter' || user?.role === 'admin') && (
+                        <>
+                            <Link
+                                to="/recruiter/dashboard"
+                                id="recruiter-nav-link"
+                                className="nav-link"
+                                style={{ color: '#6366f1', fontWeight: 600 }}
+                            >
+                                📊 Recruiter Portal
+                            </Link>
+                            <Link
+                                to="/recruiter/analytics"
+                                id="recruiter-analytics-nav-link"
+                                className="nav-link"
+                                style={{ color: '#8b5cf6', fontWeight: 600 }}
+                            >
+                                📈 Analytics
+                            </Link>
+                        </>
+                    )}
+
                     {/* Admin link — UX-only visibility gate.
                         Security enforced by ProtectedRoute + backend RBAC. */}
                     {user?.role === 'admin' && (
@@ -80,6 +102,44 @@ const Dashboard = () => {
                         updates. Try applying to a job — your recruiter's status updates
                         will appear instantly without a page refresh.
                     </p>
+
+                    {/* Recruiter Quick Actions */}
+                    {(user?.role === 'recruiter' || user?.role === 'admin') && (
+                        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <Link
+                                to="/recruiter/dashboard"
+                                style={{
+                                    padding: '0.75rem 1.25rem',
+                                    background: '#4f46e5',
+                                    color: '#ffffff',
+                                    borderRadius: '10px',
+                                    textDecoration: 'none',
+                                    fontWeight: '700',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                📊 Open Recruiter Dashboard →
+                            </Link>
+                            <Link
+                                to="/recruiter/analytics"
+                                style={{
+                                    padding: '0.75rem 1.25rem',
+                                    background: '#7c3aed',
+                                    color: '#ffffff',
+                                    borderRadius: '10px',
+                                    textDecoration: 'none',
+                                    fontWeight: '700',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                📈 View Application Analytics →
+                            </Link>
+                        </div>
+                    )}
                 </div>
 
                 <div className="dashboard-info-grid">

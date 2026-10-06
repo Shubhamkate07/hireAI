@@ -92,3 +92,21 @@ export const submitAssessment = async (assessmentId, submittedAnswers) => {
     });
     return response.data.data;  // { score, totalPossible }
 };
+
+/**
+ * POST /api/assessments
+ * Body: { title, description, job_id, time_limit_minutes, questions }
+ */
+export const createAssessment = async (assessmentData) => {
+    const response = await api.post('/assessments', assessmentData);
+    return response.data.data;
+};
+
+/**
+ * PUT /api/assessments/:id
+ * Body: { title, description, job_id, time_limit_minutes, questions }
+ */
+export const updateAssessment = async (assessmentId, assessmentData) => {
+    const response = await api.put(`/assessments/${assessmentId}`, assessmentData);
+    return response.data.data;
+};

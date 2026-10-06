@@ -75,8 +75,23 @@ const updateStatus = async (req, res, next) => {
     }
 };
 
+// ─── GET /api/recruiter/assessments ───────────────────────────────────────────
+// Returns all assessments created by the logged-in recruiter with attempt counts.
+const getRecruiterAssessments = async (req, res, next) => {
+    try {
+        const assessments = await recruiterService.getRecruiterAssessments(req.user.id);
+
+        return res.status(200).json(
+            new ApiResponse(200, assessments, 'Recruiter assessments fetched successfully')
+        );
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     getMyJobs,
+    getRecruiterAssessments,
     getApplicants,
     updateStatus,
 };

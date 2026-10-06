@@ -231,12 +231,60 @@ function parseJsonSafely(value) {
 }
 
 
+// ─── findRecruiterAssessments ──────────────────────────────────────────────────
+// Returns all assessments created by a specific recruiter, with attempt and question counts.
+const findRecruiterAssessments = async (recruiterId) => {
+    const [rows] = await pool.query(
+        `SELECT 
+            a.id,
+            a.title,
+            a.description,
+            a.time_limit_minutes,
+            a.created_at,
+            j.id AS job_id,
+            j.title AS job_title,
+            (SELECT COUNT(*) FROM questions q WHERE q.assessment_id = a.id) AS question_count,
+            COUNT(at.id) AS attempt_count
+         FROM assessments a
+         LEFT JOIN jobs j ON a.job_id = j.id
+         LEFT JOIN assessment_attempts at ON a.id = at.assessment_id
+         WHERE a.created_by = ?
+         GROUP BY a.id, a.title, a.description, a.time_limit_minutes, a.created_at, j.id, j.title
+         ORDER BY a.created_at DESC`,
+        [recruiterId]
+    );
+    return rows;
+};
+
+
+// ─── updateAssessment ──────────────────────────────────────────────────────────
+// Updates assessment header metadata.
+const updateAssessment = async (assessmentId, title, description, jobId, timeLimitMinutes, createdBy) => {
+    await pool.query(
+        `UPDATE assessments
+         SET title = ?, description = ?, job_id = ?, time_limit_minutes = ?
+         WHERE id = ? AND created_by = ?`,
+        [title, description, jobId ?? null, timeLimitMinutes ?? 30, assessmentId, createdBy]
+    );
+};
+
+
+// ─── deleteQuestionsByAssessmentId ────────────────────────────────────────────
+// Deletes existing questions for an assessment prior to re-inserting updated ones.
+const deleteQuestionsByAssessmentId = async (assessmentId) => {
+    await pool.query(`DELETE FROM questions WHERE assessment_id = ?`, [assessmentId]);
+};
+
+
 module.exports = {
     // assessments
     createAssessment,
+    updateAssessment,
+    deleteQuestionsByAssessmentId,
     findAssessmentById,
     findAssessmentByJobId,
     findAssessmentWithQuestions,
+    findRecruiterAssessments,
     // questions
     createQuestion,
     findByAssessmentId,

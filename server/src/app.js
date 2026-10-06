@@ -14,6 +14,7 @@ const recruiterRoutes       = require('./routes/recruiter.routes');        // /a
 const notificationRoutes    = require('./routes/notification.routes');     // /api/notifications
 const sseRoutes             = require('./routes/sse.routes');               // /api/sse
 const analyticsRoutes       = require('./routes/analytics.routes');         // /api/analytics
+const adminRoutes           = require('./routes/admin.routes');             // /api/admin
 
 const cookieParser = require("cookie-parser");
 
@@ -26,16 +27,13 @@ const loggerMiddleware =
 
 const app= express();
 
-// ── Production hardening (Task 3) ─────────────────────────────────────────────
+// ── Proxy & Security Hardening ─────────────────────────────────────────────
 // trust proxy: tells Express the real client IP is in X-Forwarded-For header
-//   put there by Nginx. Without this, req.ip shows the Nginx container IP.
-//   Required for: rate limiting by IP, secure cookie behaviour, logging.
-// x-powered-by: Express advertises itself by default. Disabling it removes
-//   a free hint to attackers about your stack — minor but zero-cost hardening.
-if (config.isProd) {
-    app.set('trust proxy', 1);
-    app.disable('x-powered-by');
-}
+//   sent by AWS ALB / Nginx / Docker proxies. Without this, req.ip shows
+//   the Load Balancer/Proxy IP for ALL users, causing rate limiting to block
+//   all users globally when one user exceeds login limits.
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // corsOrigins comes from CORS_ORIGINS env var (comma-separated) or defaults
@@ -60,6 +58,9 @@ app.use(morgan(config.isDev ? 'dev' : 'combined'));
 app.use(express.json());
 app.use(cookieParser());
 
+const responseTimeMiddleware = require('./middleware/responseTime.middleware');
+
+app.use(responseTimeMiddleware);
 app.use(loggerMiddleware);
 
 app.use('/api/auth', authRoutes);
@@ -100,6 +101,9 @@ app.use('/api/sse', sseRoutes);
 
 // GET /api/analytics/... — analytics dashboard endpoints
 app.use('/api/analytics', analyticsRoutes);
+
+// Admin endpoints: /api/admin/users/:id/role, /api/admin/jobs/:id/status, /api/admin/assessments, etc.
+app.use('/api/admin', adminRoutes);
 
 
 // server health check api

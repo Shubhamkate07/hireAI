@@ -19,7 +19,20 @@ const rateLimit = require('express-rate-limit');
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10,                   // 10 attempts per window per IP
+    max: 10,                   // 10 attempts per window
+    keyGenerator: (req) => {
+        // Extract true client IP from X-Forwarded-For header if behind reverse proxy/AWS ALB, or req.ip
+        const forwarded = req.headers['x-forwarded-for'];
+        const clientIp = forwarded
+            ? String(forwarded).split(',')[0].trim()
+            : req.ip || '127.0.0.1';
+
+        // Target email if present in request body
+        const email = req.body?.email ? String(req.body.email).toLowerCase().trim() : '';
+
+        // Key by clientIp + email so one user failing logins doesn't block other users or IPs
+        return email ? `${clientIp}_${email}` : clientIp;
+    },
     message: {
         success: false,
         message: 'Too many login attempts. Please try again in 15 minutes.',

@@ -36,34 +36,21 @@ const notificationService = require('../services/notification.service');
 
 const connect = async (req, res) => {
     const userId = req.user.id;
+    const assessmentId = req.query.assessmentId || null;
 
     // ── Step 1: Set SSE headers ────────────────────────────────────────────────
-    // text/event-stream is the MIME type the browser's EventSource expects.
-    // Without it, the browser won't treat this as an event stream.
     res.setHeader('Content-Type', 'text/event-stream');
-
-    // No caching — every event must be delivered fresh, never from cache.
     res.setHeader('Cache-Control', 'no-cache');
-
-    // Keep the TCP connection alive for the life of the stream.
     res.setHeader('Connection', 'keep-alive');
-
-    // Send headers immediately. This is what "opens" the persistent connection.
-    // Before this line, nothing has been sent to the browser.
     res.flushHeaders();
 
     // ── Step 2: Immediate heartbeat ────────────────────────────────────────────
-    // Send a connected event right away. This confirms to the browser that the
-    // connection is live and lets the client know to update its UI state.
-    res.write(`data: ${JSON.stringify({ type: 'connected', userId })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'connected', userId, assessmentId })}\n\n`);
 
     // ── Step 3: Register this client ──────────────────────────────────────────
-    // Now other services can push events to this user via sendToUser(userId, ...).
-    sseService.addClient(userId, res);
+    sseService.addClient(userId, res, assessmentId);
 
     // ── Step 4: Deliver unread notifications already in the DB ────────────────
-    // If the user opens a new tab, they shouldn't miss notifications that were
-    // created while they were offline. We deliver them as an 'initial' batch.
     try {
         const unreadNotifications = await notificationService.getUnread(userId);
         if (unreadNotifications.length > 0) {
@@ -74,17 +61,9 @@ const connect = async (req, res) => {
     }
 
     // ── Step 5: Cleanup on disconnect ─────────────────────────────────────────
-    // req 'close' fires when:
-    //   - Browser closes the tab
-    //   - User navigates away (EventSource gets garbage collected)
-    //   - Network drops
-    //
-    // If we DON'T remove the client, the Map holds a dead res object forever.
-    // That's a memory leak AND future sendToUser calls will throw trying to
-    // write to a closed socket.
     req.on('close', () => {
-        sseService.removeClient(userId);
-        console.log(`[SSE] Client disconnected. userId=${userId}. Active connections: ${sseService.getConnectedCount()}`);
+        sseService.removeClient(userId, res, assessmentId);
+        console.log(`[SSE] Client disconnected. userId=${userId}, assessmentId=${assessmentId}. Active connections: ${sseService.getConnectedCount()}`);
     });
 };
 

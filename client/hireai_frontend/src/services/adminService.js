@@ -4,34 +4,32 @@ import api from './api';
  * ============================================================
  * adminService.js — Frontend API calls for Admin Panel
  * ============================================================
- *
- * SECURITY NOTE (Exercise 5 theory):
- *   Hiding the Admin nav link from non-admin users is purely a UX
- *   choice. SECURITY is enforced by:
- *     1. ProtectedRoute requiredRole="admin" on the frontend route
- *     2. rbacMiddleware(['admin']) on every backend endpoint here
- *   Both layers must exist. The hidden nav link alone is NOT security.
- * ============================================================
  */
 
-/**
- * GET /api/users?page=N&limit=10
- * Used by useInfiniteQuery — pageParam is injected by React Query.
- * Returns: { users: [...], total, page, totalPages }
- */
+// ── Users ───────────────────────────────────────────────────────────────────
 export const getAdminUsers = async ({ pageParam = 1 }) => {
     const response = await api.get('/users', {
         params: { page: pageParam, limit: 10 },
     });
-    // Backend wraps in ApiResponse: { statusCode, data: { users, total, page, totalPages }, message }
     return response.data.data;
 };
 
-/**
- * GET /api/jobs?page=N&limit=10 (all jobs, all statuses)
- * Admin views all jobs across all recruiters.
- * Returns: { jobs: [...], pagination: { page, limit, total, totalPages } }
- */
+export const updateUserRole = async (userId, role) => {
+    const response = await api.patch(`/admin/users/${userId}/role`, { role });
+    return response.data.data;
+};
+
+export const updateUserStatus = async (userId, is_active) => {
+    const response = await api.patch(`/admin/users/${userId}/status`, { is_active });
+    return response.data.data;
+};
+
+export const bulkDeactivateUsers = async (userIds) => {
+    const response = await api.post('/admin/users/deactivate', { userIds });
+    return response.data.data;
+};
+
+// ── Jobs ────────────────────────────────────────────────────────────────────
 export const getAdminJobs = async ({ pageParam = 1 }) => {
     const response = await api.get('/jobs', {
         params: { page: pageParam, limit: 10 },
@@ -39,20 +37,61 @@ export const getAdminJobs = async ({ pageParam = 1 }) => {
     return response.data.data;
 };
 
-/**
- * PATCH /api/jobs/:id
- * Admin changes a job's status (open / closed / draft).
- */
 export const updateJobStatus = async (jobId, status) => {
-    const response = await api.patch(`/jobs/${jobId}`, { status });
+    const response = await api.patch(`/admin/jobs/${jobId}/status`, { status });
     return response.data.data;
 };
 
-/**
- * GET /api/analytics/platform
- * Platform-wide stats (admin only on the backend).
- * Returns: { usersByRole, totalJobs, totalApplications, totalAssessmentAttempts }
- */
+export const deleteJob = async (jobId) => {
+    const response = await api.delete(`/admin/jobs/${jobId}`);
+    return response.data.data;
+};
+
+// ── Assessments ────────────────────────────────────────────────────────────
+export const getAdminAssessments = async () => {
+    const response = await api.get('/admin/assessments');
+    return response.data.data;
+};
+
+export const getAdminAssessmentFull = async (assessmentId) => {
+    const response = await api.get(`/admin/assessments/${assessmentId}`);
+    return response.data.data;
+};
+
+export const updateAdminAssessment = async (assessmentId, payload) => {
+    const response = await api.patch(`/admin/assessments/${assessmentId}`, payload);
+    return response.data.data;
+};
+
+export const deleteAdminAssessment = async (assessmentId) => {
+    const response = await api.delete(`/admin/assessments/${assessmentId}`);
+    return response.data.data;
+};
+
+// ── Questions ───────────────────────────────────────────────────────────────
+export const addAdminQuestion = async (assessmentId, payload) => {
+    const response = await api.post(`/admin/assessments/${assessmentId}/questions`, payload);
+    return response.data.data;
+};
+
+export const updateAdminQuestion = async (questionId, payload) => {
+    const response = await api.patch(`/admin/questions/${questionId}`, payload);
+    return response.data.data;
+};
+
+export const deleteAdminQuestion = async (questionId) => {
+    const response = await api.delete(`/admin/questions/${questionId}`);
+    return response.data.data;
+};
+
+// ── Activity Log & Platform Stats ───────────────────────────────────────────
+export const getActivityLog = async ({ page = 1, limit = 50, type = 'all' } = {}) => {
+    const response = await api.get('/admin/activity', {
+        params: { page, limit, type },
+    });
+    return response.data.data;
+};
+
 export const getPlatformStats = async () => {
     const response = await api.get('/analytics/platform');
     return response.data.data;

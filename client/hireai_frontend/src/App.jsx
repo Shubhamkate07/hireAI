@@ -52,10 +52,17 @@ const PracticePage          = lazy(() => import('./Pages/Practice/PracticePage')
 const JobsListPage          = lazy(() => import('./Pages/JobsListPage/JobsListPage'))
 const JobDetailPage         = lazy(() => import('./Pages/JobDetailPage/JobDetailPage'))
 const AssessmentPage        = lazy(() => import('./Pages/Assessment/AssessmentPage'))
+const LeaderboardPage       = lazy(() => import('./Pages/LeaderboardPage/LeaderboardPage'))
 const RecruiterDashboardPage = lazy(() => import('./Pages/Recruiter/RecruiterDashboardPage'))
+const CreateAssessmentPage   = lazy(() => import('./Pages/Recruiter/CreateAssessmentPage'))
 const ApplicantPipelinePage  = lazy(() => import('./Pages/Recruiter/ApplicantPipelinePage'))
 const AnalyticsDashboard     = lazy(() => import('./Pages/Recruiter/AnalyticsDashboard'))
 const AdminDashboard         = lazy(() => import('./Pages/Admin/AdminDashboard'))
+const AdminUsersPage          = lazy(() => import('./Pages/Admin/AdminUsersPage'))
+const AdminJobsPage           = lazy(() => import('./Pages/Admin/AdminJobsPage'))
+const AdminAssessmentsPage    = lazy(() => import('./Pages/Admin/AdminAssessmentsPage'))
+const AdminEditAssessmentPage = lazy(() => import('./Pages/Admin/AdminEditAssessmentPage'))
+const AdminActivityPage       = lazy(() => import('./Pages/Admin/AdminActivityPage'))
 
 // ─── Helper: route element with Suspense + ErrorBoundary ─────────────────────
 // Extracts the repetitive wrapping pattern into a single call.
@@ -115,11 +122,16 @@ const App = () => {
                 </ErrorBoundary>
               }
             />
+            {/* Leaderboard route */}
+            <Route path="/assessments/:assessmentId/leaderboard" element={routeEl(LeaderboardPage)} />
           </Route>
 
           {/* ── Recruiter Role-Protected Routes ───────────────────────── */}
           <Route element={<ProtectedRoute requiredRole="recruiter" />}>
             <Route path="/recruiter/dashboard"            element={routeEl(RecruiterDashboardPage)} />
+            <Route path="/recruiter/assessments/new"      element={routeEl(CreateAssessmentPage)} />
+            {/* Edit route: passes assessment ID as a URL param instead of query string */}
+            <Route path="/recruiter/assessments/:id/edit" element={routeEl(CreateAssessmentPage)} />
             <Route path="/recruiter/jobs/:jobId/pipeline" element={routeEl(ApplicantPipelinePage)} />
             <Route path="/recruiter/analytics"            element={routeEl(AnalyticsDashboard)} />
           </Route>
@@ -129,6 +141,11 @@ const App = () => {
           {/* SECURITY Layer 2: rbacMiddleware(['admin']) on every endpoint */}
           <Route element={<ProtectedRoute requiredRole="admin" />}>
             <Route path="/admin" element={routeEl(AdminDashboard)} />
+            <Route path="/admin/users" element={routeEl(AdminUsersPage)} />
+            <Route path="/admin/jobs" element={routeEl(AdminJobsPage)} />
+            <Route path="/admin/assessments" element={routeEl(AdminAssessmentsPage)} />
+            <Route path="/admin/assessments/:id" element={routeEl(AdminEditAssessmentPage)} />
+            <Route path="/admin/activity" element={routeEl(AdminActivityPage)} />
           </Route>
 
           {/* 404 */}

@@ -36,6 +36,10 @@ router.use(rbacMiddleware(['recruiter', 'admin']));
 // List of the recruiter's own jobs with how many applications each has received.
 router.get('/jobs', recruiterController.getMyJobs);
 
+// ─── GET /api/recruiter/assessments ───────────────────────────────────────────
+// List of all assessments created by the recruiter with attempt and question counts.
+router.get('/assessments', recruiterController.getRecruiterAssessments);
+
 // ─── GET /api/recruiter/jobs/:jobId/applications ──────────────────────────────
 // All applicants for one specific job (ownership enforced in the service).
 router.get('/jobs/:jobId/applications', recruiterController.getApplicants);

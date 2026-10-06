@@ -55,9 +55,9 @@ router.get(
 );
 
 // GET /api/analytics/assessments/:assessmentId/leaderboard — RANK() window function
+// Open to ALL authenticated users so candidates can view their own ranking.
 router.get(
     '/assessments/:assessmentId/leaderboard',
-    rbacMiddleware(['recruiter', 'admin']),
     analyticsController.getAssessmentLeaderboard
 );
 

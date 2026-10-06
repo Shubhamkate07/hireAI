@@ -27,6 +27,7 @@
 
 const applicationModel    = require('../models/application.model');
 const jobModel            = require('../models/job.model');
+const assessmentModel     = require('../models/assessment.model');
 const ApiError            = require('../utils/ApiError');
 const notificationService = require('./notification.service');
 
@@ -150,8 +151,13 @@ const updateApplicationStatus = async (applicationId, recruiterId, newStatus, no
     return updatedApplication;
 };
 
+const getRecruiterAssessments = async (recruiterId) => {
+    return assessmentModel.findRecruiterAssessments(recruiterId);
+};
+
 module.exports = {
     getRecruiterJobs,
+    getRecruiterAssessments,
     getApplicantsForJob,
     updateApplicationStatus,
 };

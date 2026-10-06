@@ -8,7 +8,8 @@ const customRateLimiter = (
    next
 ) => {
 
-   const ip = req.ip;
+   const forwarded = req.headers['x-forwarded-for'];
+   const ip = forwarded ? String(forwarded).split(',')[0].trim() : req.ip || '127.0.0.1';
 
    const currentTime = Date.now();
 

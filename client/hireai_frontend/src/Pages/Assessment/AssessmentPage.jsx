@@ -47,7 +47,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams }           from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getAssessment, submitAssessment } from '../../services/assessmentService';
 import './AssessmentPage.css';
@@ -272,6 +272,43 @@ const AssessmentPage = () => {
                         <span className="ap-score-label">
                             {result.score} / {result.totalPossible} pts
                         </span>
+                    </div>
+
+                    <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <Link
+                            to={`/assessments/${assessmentId}/leaderboard`}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: 'linear-gradient(135deg, #0f172a, #334155)',
+                                color: '#fbbf24',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                fontWeight: '700',
+                                border: '1px solid rgba(251, 191, 36, 0.4)',
+                                boxShadow: '0 4px 14px rgba(15,23,42,0.2)'
+                            }}
+                        >
+                            🏆 View Assessment Leaderboard
+                        </Link>
+                        <Link
+                            to="/jobs"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: '#f1f5f9',
+                                color: '#334155',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                            }}
+                        >
+                            ← Back to Jobs
+                        </Link>
                     </div>
                 </div>
             </div>

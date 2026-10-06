@@ -75,90 +75,38 @@ async(
 
    let query =
    `
-   SELECT *
-   FROM jobs
+   SELECT j.*, COUNT(a.id) AS application_count
+   FROM jobs j
+   LEFT JOIN applications a ON j.id = a.job_id
    WHERE 1=1
    `;
 
    const values = [];
 
    if(filters.status){
-
-      query +=
-      `
-      AND status=?
-      `;
-
-      values.push(
-         filters.status
-      );
-
+      query += ` AND j.status=? `;
+      values.push(filters.status);
    }
 
    if(filters.job_type){
-
-      query +=
-      `
-      AND job_type=?
-      `;
-
-      values.push(
-         filters.job_type
-      );
-
+      query += ` AND j.job_type=? `;
+      values.push(filters.job_type);
    }
 
    if(filters.location){
-
-      query +=
-      `
-      AND location=?
-      `;
-
-      values.push(
-         filters.location
-      );
-
+      query += ` AND j.location=? `;
+      values.push(filters.location);
    }
 
    if(filters.search){
-
-      query +=
-      `
-      AND
-      (
-         title LIKE ?
-         OR company LIKE ?
-      )
-      `;
-
-      values.push(
-         `%${filters.search}%`
-      );
-
-      values.push(
-         `%${filters.search}%`
-      );
-
+      query += ` AND (j.title LIKE ? OR j.company LIKE ?) `;
+      values.push(`%${filters.search}%`, `%${filters.search}%`);
    }
 
-   query +=
-   `
-   LIMIT ?
-   OFFSET ?
-   `;
+   query += ` GROUP BY j.id ORDER BY j.created_at DESC LIMIT ? OFFSET ? `;
+   values.push(limit, offset);
 
-   values.push(
-      limit,
-      offset
-   );
-
-   const [rows] =
-   await pool.query(
-      query,
-      values
-   );
-
+   const [rows] = await pool.query(query, values);
    return rows;
 
 };

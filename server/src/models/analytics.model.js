@@ -92,13 +92,17 @@ const getPlatformStats = async () => {
         totalAssessmentAttempts = 0;
     }
 
-    const usersByRole = usersByRoleRows.map((r) => ({
-        role: r.role,
-        count: Number(r.count || 0),
-    }));
+    const usersByRoleMap = {
+        candidate: 0,
+        recruiter: 0,
+        admin: 0,
+    };
+    usersByRoleRows.forEach((r) => {
+        if (r.role) usersByRoleMap[r.role] = Number(r.count || 0);
+    });
 
     return {
-        usersByRole,
+        usersByRole: usersByRoleMap,
         totalJobs: Number(totalJobsRows[0]?.total || 0),
         totalApplications: Number(totalApplicationsRows[0]?.total || 0),
         totalAssessmentAttempts,

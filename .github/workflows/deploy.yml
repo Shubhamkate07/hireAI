@@ -19,10 +19,9 @@ jobs:
           script: |
             cd ~/hireAI
 
-            git fetch hireai
+            git fetch origin main
             git checkout main
-            git reset --hard hireai/main
-
+            git reset --hard origin/main
             docker compose up -d --build
 
             docker compose ps

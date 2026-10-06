@@ -39,6 +39,7 @@ const authLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false },
 });
 
 module.exports = authLimiter;

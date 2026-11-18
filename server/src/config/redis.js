@@ -31,14 +31,16 @@ const redis = new Redis({
     lazyConnect: false,
 });
 
+const logger = require('../utils/logger');
+
 // ── Connection lifecycle logs ─────────────────────────────────────────────────
 redis.on('connect', () => {
-  console.log('✅ Redis connected');
+  logger.info('✅ Redis connected');
 });
 
 redis.on('error', (err) => {
   // Log but don't crash — the app will still work, just without cache.
-  console.error('❌ Redis error:', err.message);
+  logger.error('❌ Redis error:', { error: err.message });
 });
 
 module.exports = redis;

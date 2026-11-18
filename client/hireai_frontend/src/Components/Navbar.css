@@ -1,0 +1,219 @@
+/* ============================================================
+   Navbar.css — Unified HireAI navigation bar
+   Used by ALL pages. Do not put page-specific styles here.
+   ============================================================ */
+
+.hireai-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 64px;
+    background: rgba(10, 13, 20, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    box-shadow: 0 1px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Left: Logo + Role Badge ──────────────────────────────── */
+.hireai-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hireai-logo {
+    font-size: 20px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.03em;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+.hireai-logo:hover { opacity: 0.85; }
+
+.hireai-role-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 99px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.hireai-role-admin {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.hireai-role-recruiter {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* ── Right: Links + Bell + User ──────────────────────────── */
+.hireai-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Base nav link */
+.hireai-nav-link {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none;
+    padding: 6px 11px;
+    border-radius: 8px;
+    transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+.hireai-nav-link:hover {
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.06);
+}
+/* Active route highlight */
+.hireai-nav-link.is-active {
+    color: #ffffff;
+    background: rgba(99, 102, 241, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.35);
+}
+.hireai-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Accent (recruiter) nav link */
+.hireai-nav-link--accent {
+    color: #a78bfa;
+    font-weight: 600;
+}
+.hireai-nav-link--accent:hover {
+    color: #c4b5fd;
+    background: rgba(167, 139, 250, 0.08);
+}
+
+/* Danger (admin) nav link */
+.hireai-nav-link--danger {
+    color: #f87171;
+    font-weight: 700;
+}
+.hireai-nav-link--danger:hover {
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.08);
+}
+
+/* Separator before user area */
+.hireai-nav-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 8px;
+    padding-left: 14px;
+    border-left: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+/* Avatar circle */
+.hireai-nav-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.hireai-nav-user-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+.hireai-nav-logout {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 5px 13px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+.hireai-nav-logout:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.07);
+}
+
+/* Variant active states (declared after variants so they win) */
+.hireai-nav-link--accent.is-active { color: #ddd6fe; background: rgba(167, 139, 250, 0.16); box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.4); }
+.hireai-nav-link--danger.is-active { color: #fecaca; background: rgba(248, 113, 113, 0.14); box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.4); }
+
+/* Avatar + name is a link to /profile */
+.hireai-nav-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    border-radius: 99px;
+    padding: 2px 8px 2px 2px;
+    transition: background 0.15s ease;
+}
+.hireai-nav-profile:hover { background: rgba(255, 255, 255, 0.06); }
+
+/* Hamburger — hidden on desktop */
+.hireai-nav-toggle {
+    display: none;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    font-size: 18px;
+    line-height: 1;
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .hireai-nav { padding: 0 16px; }
+    .hireai-nav-user-name { display: none; }
+}
+@media (max-width: 820px) {
+    .hireai-nav-toggle { display: inline-flex; }
+    .hireai-nav-right {
+        display: none;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 16px 16px;
+        background: rgba(10, 13, 20, 0.98);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .hireai-nav-right.is-open { display: flex; }
+    .hireai-nav-links { flex-direction: column; align-items: stretch; }
+    .hireai-nav-link { padding: 10px 12px; font-size: 14px; }
+    .hireai-nav-user { margin-left: 0; padding-left: 0; border-left: none; justify-content: space-between; }
+    .hireai-nav-user-name { display: inline; }
+}

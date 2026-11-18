@@ -147,11 +147,15 @@ const refreshAccessToken = async (refreshToken) => {
 
    }
 
-   const decoded =
-      jwt.verify(
-         refreshToken,
-         config.jwt.refreshSecret
-      );
+   // jwt.verify throws on bad signature/expiry. Convert that into a clean 401
+   // so the client logs out instead of seeing a 500 Internal Server Error.
+   let decoded;
+   try {
+      decoded = jwt.verify(refreshToken, config.jwt.refreshSecret);
+   } catch {
+      await refreshTokenModel.deleteRefreshToken(tokenHash);
+      throw new ApiError(401, "Invalid refresh token");
+   }
 
    // Fetch user to get the current role — if role changed after
    // the refresh token was issued, the new access token reflects it

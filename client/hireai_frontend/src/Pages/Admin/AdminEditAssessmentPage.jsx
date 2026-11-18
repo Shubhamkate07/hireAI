@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     getAdminAssessmentFull,
@@ -10,6 +10,7 @@ import {
     getAdminJobs,
 } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminEditAssessmentPage = () => {
     const { id: assessmentId } = useParams();
@@ -174,9 +175,11 @@ const AdminEditAssessmentPage = () => {
 
     if (isAssessmentLoading) {
         return (
-            <div className="admin-page-container">
-                <div style={{ padding: '3rem', textAlign: 'center', color: '#6366f1' }}>
-                    Loading assessment details...
+            <div className="admin-shell">
+                <div className="admin-page-container">
+                    <div style={{ padding: '3rem', textAlign: 'center', color: '#6366f1' }}>
+                        Loading assessment details...
+                    </div>
                 </div>
             </div>
         );
@@ -184,19 +187,23 @@ const AdminEditAssessmentPage = () => {
 
     if (isError) {
         return (
-            <div className="admin-page-container">
-                <div className="admin-alert admin-alert-danger">
-                    ⚠️ {error?.response?.data?.message || 'Failed to load assessment.'}
+            <div className="admin-shell">
+                <div className="admin-page-container">
+                    <BackButton to="/admin/assessments" label="Back to Assessments" />
+                    <div className="admin-alert admin-alert-danger">
+                        ⚠️ {error?.response?.data?.message || 'Failed to load assessment.'}
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin/assessments" className="admin-back-link">← Back to Assessments List</Link>
+                    <BackButton to="/admin/assessments" label="Back to Assessments" />
                 </div>
                 <h1 className="admin-page-title">✏️ Edit Assessment #{assessmentId}</h1>
                 <p className="admin-page-subtitle">Full administrative editor for test settings, question options, and correct answers.</p>
@@ -406,6 +413,7 @@ const AdminEditAssessmentPage = () => {
                     </button>
                 </div>
             </form>
+        </div>
         </div>
     );
 };

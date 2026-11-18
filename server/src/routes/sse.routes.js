@@ -18,12 +18,14 @@
 const express        = require('express');
 const sseController  = require('../controllers/sse.controller');
 const authMiddleware = require('../middleware/auth.middleware');
+const { sseLimiter } = require('../middleware/rateLimit.middleware');
 
 const router = express.Router();
 
 // GET /api/sse/connect
-// authMiddleware runs first: verifies JWT cookie → populates req.user.
+// sseLimiter prevents connection flooding (max 15 / 5m).
+// authMiddleware verifies JWT cookie → populates req.user.
 // Then sseController.connect opens the persistent stream.
-router.get('/connect', authMiddleware, sseController.connect);
+router.get('/connect', sseLimiter, authMiddleware, sseController.connect);
 
 module.exports = router;

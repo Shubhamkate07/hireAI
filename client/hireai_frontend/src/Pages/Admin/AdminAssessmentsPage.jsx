@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getAdminAssessments, deleteAdminAssessment } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminAssessmentsPage = () => {
     const queryClient = useQueryClient();
@@ -40,10 +41,11 @@ const AdminAssessmentsPage = () => {
     });
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin" className="admin-back-link">← Back to Admin Overview</Link>
+                    <BackButton to="/admin" label="Back to Admin Overview" />
                 </div>
                 <h1 className="admin-page-title">📝 Technical Assessments Management</h1>
                 <p className="admin-page-subtitle">Inspect, edit, or remove technical quizzes across all recruiters.</p>
@@ -197,6 +199,7 @@ const AdminAssessmentsPage = () => {
                     </div>
                 </div>
             )}
+        </div>
         </div>
     );
 };

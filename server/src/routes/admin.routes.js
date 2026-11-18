@@ -1,15 +1,20 @@
+/**
+ * ============================================================
+ * admin.routes.js — System Governance & Admin Control Center Routes
+ * ============================================================
+ * Scope: System-wide platform governance (User role/status overrides,
+ *        Job overrides/deletions, Assessment question management,
+ *        and System Audit Log streaming).
+ *
+ * Authentication: Strictly Protected
+ * Required Role: 'admin' (enforced via rbacMiddleware)
+ * ============================================================
+ */
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth.middleware');
 const rbacMiddleware = require('../middleware/rbac.middleware');
 const adminController = require('../controllers/admin.controller');
-
-/**
- * ============================================================
- * admin.routes.js — Admin Panel API Routes
- * ============================================================
- * ALL endpoints strictly protected by authMiddleware + rbacMiddleware(['admin'])
- */
 
 router.use(authMiddleware);
 router.use(rbacMiddleware(['admin']));

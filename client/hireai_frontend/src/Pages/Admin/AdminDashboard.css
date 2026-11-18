@@ -3,9 +3,16 @@
    Uses global design token variables from index.css
    ============================================================ */
 
-/* ─── Page Shell ──────────────────────────────────────────── */
+/* ─── Page Shell (shared) ─────────────────────────────────── */
+.admin-shell {
+    min-height: calc(100vh - 64px); /* viewport minus shared navbar */
+    background: linear-gradient(135deg, #0f172a 0%, #0a0f1e 100%);
+    color: var(--color-text);
+}
+
+/* Legacy alias kept for any old references */
 .admin-page {
-    min-height: 100vh;
+    min-height: calc(100vh - 64px); /* viewport minus shared navbar */
     background: var(--color-bg);
     color: var(--color-text);
 }

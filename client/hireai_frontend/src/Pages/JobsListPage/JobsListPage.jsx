@@ -29,6 +29,7 @@ import { Link } from 'react-router-dom'
 import { getJobs } from '../../services/jobService'
 import useDebounce from '../../hooks/useDebounce'
 import JobCard from '../../Components/JobCard'
+import BackButton from '../../Components/BackButton'
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 const SkeletonCard = () => (
@@ -197,6 +198,8 @@ const JobsListPage = () => {
           border-color: #c7d2fe;
         }
       `}</style>
+
+      <BackButton to="/dashboard" label="Back to Home" />
 
       {/* ── Page Header ── */}
       <div style={styles.header}>
@@ -415,11 +418,11 @@ const styles = {
     margin: 0,
     fontSize: '1.8rem',
     fontWeight: 800,
-    color: '#0f172a',
+    color: '#f1f5f9',   // light text — page sits on the dark app background
   },
   subheading: {
     margin: '4px 0 0',
-    color: '#64748b',
+    color: '#94a3b8',
     fontSize: '0.9rem',
   },
   fetchingBadge: {
@@ -577,7 +580,7 @@ const styles = {
   },
   pageInfo: {
     fontSize: '0.875rem',
-    color: '#64748b',
+    color: '#cbd5e1',
     minWidth: '160px',
     textAlign: 'center',
   },

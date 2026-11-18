@@ -16,7 +16,6 @@ import {
     Legend,
 } from 'recharts';
 import { getRecruiterSummary, getRecruiterJobApplications } from '../../services/analyticsService';
-import NotificationBell from '../../Components/NotificationBell';
 import useSSE from '../../hooks/useSSE';
 import { logoutUser } from '../../store/slices/authSlice';
 import './AnalyticsDashboard.css';
@@ -320,24 +319,6 @@ const AnalyticsDashboard = () => {
     return (
         <div className="analytics-dashboard-page">
 
-            {/* ── Top Navigation ── */}
-            <nav className="recruiter-nav">
-                <div className="nav-brand">
-                    <span className="logo">HireAI</span>
-                    <span className="portal-badge">Analytics</span>
-                </div>
-                <div className="nav-actions">
-                    <Link to="/recruiter/dashboard" className="nav-link">← Dashboard</Link>
-                    <Link to="/jobs"                className="nav-link">Browse Jobs</Link>
-                    <NotificationBell />
-                    <div className="user-profile">
-                        <span className="user-name">{user?.name}</span>
-                        <button id="analytics-logout-btn" className="logout-btn" onClick={handleLogout}>
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </nav>
 
             {/* ── Main ── */}
             <main className="analytics-main">

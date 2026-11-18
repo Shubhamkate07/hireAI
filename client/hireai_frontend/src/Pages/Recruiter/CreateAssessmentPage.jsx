@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useParams, Link } from 'react-router-dom';
+import BackButton from '../../Components/BackButton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRecruiterJobs } from '../../services/recruiterService';
 import { createAssessment, updateAssessment, getAssessmentByJobId, getAssessment } from '../../services/assessmentService';
@@ -232,9 +233,7 @@ const CreateAssessmentPage = () => {
   return (
     <div style={styles.pageContainer}>
       <div style={styles.header}>
-        <Link to="/recruiter/dashboard" style={styles.backLink}>
-          ← Back to Recruiter Dashboard
-        </Link>
+        <BackButton to="/recruiter/dashboard" label="Back to My Postings" />
         <h1 style={styles.heading}>
           {isEditMode ? '✏️ Edit Assessment' : '📝 Create New Assessment'}
         </h1>
@@ -447,20 +446,14 @@ const styles = {
   header: {
     marginBottom: '2rem',
   },
-  backLink: {
-    color: '#6366f1',
-    textDecoration: 'none',
-    fontWeight: '600',
-    fontSize: '0.9rem',
-  },
   heading: {
     fontSize: '1.85rem',
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#f1f5f9',   // light text — page sits on the dark app background
     margin: '8px 0 4px',
   },
   subheading: {
-    color: '#64748b',
+    color: '#94a3b8',
     margin: 0,
     fontSize: '1rem',
   },

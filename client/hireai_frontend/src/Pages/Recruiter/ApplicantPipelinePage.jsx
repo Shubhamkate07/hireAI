@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector, useDispatch } from 'react-redux';
 import { getJobApplicants, updateApplicantStatus } from '../../services/recruiterService';
-import NotificationBell from '../../Components/NotificationBell';
 import { logoutUser } from '../../store/slices/authSlice';
 import './ApplicantPipelinePage.css';
+import BackButton from '../../Components/BackButton';
 
 // State Machine Definition for Valid Transitions
 const VALID_TRANSITIONS = {
@@ -136,26 +136,11 @@ const ApplicantPipelinePage = () => {
 
     return (
         <div className="pipeline-page">
-            {/* Top Navigation */}
-            <nav className="recruiter-nav">
-                <div className="nav-brand">
-                    <span className="logo">HireAI</span>
-                    <span className="portal-badge">Applicant Pipeline</span>
-                </div>
-                <div className="nav-actions">
-                    <Link to="/recruiter/dashboard" className="nav-link">← Recruiter Portal</Link>
-                    <NotificationBell />
-                    <div className="user-profile">
-                        <span className="user-name">{user?.name}</span>
-                        <button className="logout-btn" onClick={handleLogout}>Logout</button>
-                    </div>
-                </div>
-            </nav>
 
             <main className="pipeline-main">
                 <div className="pipeline-header">
                     <div>
-                        <Link to="/recruiter/dashboard" className="back-link">← Back to Dashboard</Link>
+                        <BackButton to="/recruiter/dashboard" label="Back to My Postings" />
                         <h1>Candidate Pipeline</h1>
                         <p>Job ID #{jobId} • Drag or click transition buttons to move candidates</p>
                     </div>

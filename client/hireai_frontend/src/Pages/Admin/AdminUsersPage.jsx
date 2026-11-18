@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
 import { getAdminUsers, updateUserRole, updateUserStatus, bulkDeactivateUsers } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminUsersPage = () => {
     const queryClient = useQueryClient();
@@ -109,10 +109,11 @@ const AdminUsersPage = () => {
     };
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin" className="admin-back-link">← Back to Admin Overview</Link>
+                    <BackButton to="/admin" label="Back to Admin Overview" />
                 </div>
                 <h1 className="admin-page-title">👥 User Management</h1>
                 <p className="admin-page-subtitle">View, manage roles, and control account statuses across all registered users.</p>
@@ -298,6 +299,7 @@ const AdminUsersPage = () => {
                         )}
                     </>
                 )}
+            </div>
             </div>
         </div>
     );

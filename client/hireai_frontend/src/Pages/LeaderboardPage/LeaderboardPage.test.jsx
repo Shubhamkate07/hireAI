@@ -2,9 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import LeaderboardPage from './LeaderboardPage';
 import * as analyticsService from '../../services/analyticsService';
-import { AuthContext } from '../../context/AuthContext';
+import authReducer from '../../store/slices/authSlice';
 
 // Helper: create isolated QueryClient
 const createTestClient = () => new QueryClient({
@@ -16,14 +18,21 @@ const createTestClient = () => new QueryClient({
 // Helper: render LeaderboardPage with required Providers & Route Params
 const renderLeaderboard = (assessmentId = '101', userValue = null) => {
   const queryClient = createTestClient();
-  const authVal = {
-    user: userValue,
-    loading: false,
-    isAuthenticated: !!userValue,
-  };
+  const store = configureStore({
+    reducer: {
+      auth: authReducer,
+    },
+    preloadedState: {
+      auth: {
+        user: userValue,
+        isAuthenticated: !!userValue,
+        loading: false,
+      },
+    },
+  });
 
   return render(
-    <AuthContext.Provider value={authVal}>
+    <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/assessments/${assessmentId}/leaderboard`]}>
           <Routes>
@@ -31,7 +40,7 @@ const renderLeaderboard = (assessmentId = '101', userValue = null) => {
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
-    </AuthContext.Provider>
+    </Provider>
   );
 };
 

@@ -40,6 +40,9 @@ import { Navigate, Routes, Route } from 'react-router-dom'
 import ErrorBoundary  from './Components/ErrorBoundary'
 import PageLoader     from './Components/PageLoader'
 import ProtectedRoute from './Components/ProtectedRoute'
+import GuestRoute     from './Components/GuestRoute'
+import AppLayout      from './Components/AppLayout'
+import AdminLayout    from './Components/AdminLayout'
 
 // ─── Lazy-loaded page components ─────────────────────────────────────────────
 // Each is split into its own JS chunk. The browser downloads them on demand.
@@ -84,28 +87,22 @@ const App = () => {
         <Routes>
 
           {/* ── Public Routes ─────────────────────────────────────────── */}
+          {/* "/" → /login; GuestRoute then forwards signed-in users to /dashboard */}
           <Route path="/" element={<Navigate to="/login" replace />} />
 
-          <Route path="/login"    element={routeEl(Login)} />
-          <Route path="/register" element={routeEl(Register)} />
+          <Route element={<GuestRoute />}>
+            <Route path="/login"    element={routeEl(Login)} />
+            <Route path="/register" element={routeEl(Register)} />
+          </Route>
 
           {/* Practice exercises */}
           <Route path="/practice" element={routeEl(PracticePage)} />
 
           {/* ── Standard Protected Routes ─────────────────────────────── */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={routeEl(Dashboard)} />
-            <Route path="/profile"   element={routeEl(Profile)} />
-
-            {/* Jobs list */}
-            <Route path="/jobs"    element={routeEl(JobsListPage)} />
-
-            {/* Job detail */}
-            <Route path="/jobs/:id" element={routeEl(JobDetailPage)} />
-
             {/*
-              Assessment — keeps a custom Suspense fallback message
-              to avoid the generic "Loading…" during assessment prep
+              Assessment — distraction-free "exam mode": intentionally rendered
+              WITHOUT the app navbar. The page has its own Exit button.
             */}
             <Route
               path="/assessments/:assessmentId"
@@ -122,30 +119,44 @@ const App = () => {
                 </ErrorBoundary>
               }
             />
-            {/* Leaderboard route */}
-            <Route path="/assessments/:assessmentId/leaderboard" element={routeEl(LeaderboardPage)} />
+
+            {/* Every other signed-in page shares one Navbar via AppLayout */}
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={routeEl(Dashboard)} />
+              <Route path="/profile"   element={routeEl(Profile)} />
+              <Route path="/jobs"      element={routeEl(JobsListPage)} />
+              <Route path="/jobs/:id"  element={routeEl(JobDetailPage)} />
+              <Route path="/assessments/:assessmentId/leaderboard" element={routeEl(LeaderboardPage)} />
+            </Route>
           </Route>
 
           {/* ── Recruiter Role-Protected Routes ───────────────────────── */}
           <Route element={<ProtectedRoute requiredRole="recruiter" />}>
-            <Route path="/recruiter/dashboard"            element={routeEl(RecruiterDashboardPage)} />
-            <Route path="/recruiter/assessments/new"      element={routeEl(CreateAssessmentPage)} />
-            {/* Edit route: passes assessment ID as a URL param instead of query string */}
-            <Route path="/recruiter/assessments/:id/edit" element={routeEl(CreateAssessmentPage)} />
-            <Route path="/recruiter/jobs/:jobId/pipeline" element={routeEl(ApplicantPipelinePage)} />
-            <Route path="/recruiter/analytics"            element={routeEl(AnalyticsDashboard)} />
+            <Route element={<AppLayout />}>
+              <Route path="/recruiter/dashboard"            element={routeEl(RecruiterDashboardPage)} />
+              <Route path="/recruiter/assessments/new"      element={routeEl(CreateAssessmentPage)} />
+              {/* Edit route: passes assessment ID as a URL param instead of query string */}
+              <Route path="/recruiter/assessments/:id/edit" element={routeEl(CreateAssessmentPage)} />
+              <Route path="/recruiter/jobs/:jobId/pipeline" element={routeEl(ApplicantPipelinePage)} />
+              <Route path="/recruiter/analytics"            element={routeEl(AnalyticsDashboard)} />
+            </Route>
           </Route>
 
-          {/* ── Admin Role-Protected Route ────────────────────────────── */}
+          {/* ── Admin Role-Protected Routes ───────────────────────────── */}
           {/* SECURITY Layer 1: ProtectedRoute requiredRole="admin"       */}
           {/* SECURITY Layer 2: rbacMiddleware(['admin']) on every endpoint */}
+          {/* AdminLayout adds the Overview/Users/Jobs/Assessments/Activity tab bar */}
           <Route element={<ProtectedRoute requiredRole="admin" />}>
-            <Route path="/admin" element={routeEl(AdminDashboard)} />
-            <Route path="/admin/users" element={routeEl(AdminUsersPage)} />
-            <Route path="/admin/jobs" element={routeEl(AdminJobsPage)} />
-            <Route path="/admin/assessments" element={routeEl(AdminAssessmentsPage)} />
-            <Route path="/admin/assessments/:id" element={routeEl(AdminEditAssessmentPage)} />
-            <Route path="/admin/activity" element={routeEl(AdminActivityPage)} />
+            <Route element={<AppLayout />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin"                 element={routeEl(AdminDashboard)} />
+                <Route path="/admin/users"           element={routeEl(AdminUsersPage)} />
+                <Route path="/admin/jobs"            element={routeEl(AdminJobsPage)} />
+                <Route path="/admin/assessments"     element={routeEl(AdminAssessmentsPage)} />
+                <Route path="/admin/assessments/:id" element={routeEl(AdminEditAssessmentPage)} />
+                <Route path="/admin/activity"        element={routeEl(AdminActivityPage)} />
+              </Route>
+            </Route>
           </Route>
 
           {/* 404 */}

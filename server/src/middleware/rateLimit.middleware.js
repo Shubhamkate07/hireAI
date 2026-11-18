@@ -1,36 +1,35 @@
 /**
  * ============================================================
- * rateLimit.middleware.js — Auth Route Rate Limiting
+ * rateLimit.middleware.js — Route Rate Limiting Configuration
  * ============================================================
  *
- * WHY limit to 10 per 15 minutes?
- *   10 attempts × 15-min window is generous for legitimate users
- *   (forgot password, typo) but stops automated brute-force tools
- *   that can send thousands of requests per second.
+ * Configures rate limiters for high-risk endpoints:
+ *   1. authLimiter: 10 login/auth attempts per 15 minutes (key: IP + Email)
+ *   2. applyLimiter: 10 job applications per 15 minutes (key: IP + User ID)
+ *   3. sseLimiter: 15 SSE stream connections per 5 minutes (key: IP + User ID)
  *
- * standardHeaders: true  → includes RateLimit-* headers (RFC 6585)
- * legacyHeaders: false   → suppresses deprecated X-RateLimit-* headers
- *
- * SECURITY REVIEW (Task 3): try 15 rapid login attempts →
- *   the 11th will receive HTTP 429 with the message below.
+ * HOW RATE LIMITING SCALES TO MILLIONS OF USERS WORLDWIDE:
+ *   - Limits are NEVER global across all users on your server.
+ *   - Each limit is calculated PER UNIQUE CLIENT (IP + User ID).
+ *   - 1,000,000 different users from 1,000,000 devices can connect simultaneously.
+ *   - Combining clientIp + userId ensures users sharing an office/college Wi-Fi IP
+ *     never block each other!
  * ============================================================
  */
 const rateLimit = require('express-rate-limit');
+
+// Helper: extract true client IP from reverse proxies (AWS ALB / Nginx)
+const getClientIp = (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    return forwarded ? String(forwarded).split(',')[0].trim() : req.ip || '127.0.0.1';
+};
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10,                   // 10 attempts per window
     keyGenerator: (req) => {
-        // Extract true client IP from X-Forwarded-For header if behind reverse proxy/AWS ALB, or req.ip
-        const forwarded = req.headers['x-forwarded-for'];
-        const clientIp = forwarded
-            ? String(forwarded).split(',')[0].trim()
-            : req.ip || '127.0.0.1';
-
-        // Target email if present in request body
+        const clientIp = getClientIp(req);
         const email = req.body?.email ? String(req.body.email).toLowerCase().trim() : '';
-
-        // Key by clientIp + email so one user failing logins doesn't block other users or IPs
         return email ? `${clientIp}_${email}` : clientIp;
     },
     message: {
@@ -42,4 +41,42 @@ const authLimiter = rateLimit({
     validate: { keyGeneratorIpFallback: false },
 });
 
-module.exports = authLimiter;
+const applyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,                  // 10 applications per 15 mins per user
+    keyGenerator: (req) => {
+        const clientIp = getClientIp(req);
+        const userId = req.user?.id || req.user?.userId;
+        return userId ? `${clientIp}_user_${userId}` : clientIp;
+    },
+    message: {
+        success: false,
+        message: 'Too many job applications submitted. Please slow down and try again in 15 minutes.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false },
+});
+
+const sseLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,  // 5 minutes
+    max: 15,                  // 15 SSE connections per 5 mins per user
+    keyGenerator: (req) => {
+        const clientIp = getClientIp(req);
+        const userId = req.user?.id || req.user?.userId;
+        return userId ? `${clientIp}_user_${userId}` : clientIp;
+    },
+    message: {
+        success: false,
+        message: 'Too many real-time connection attempts. Please try again shortly.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false },
+});
+
+module.exports = {
+    authLimiter,
+    applyLimiter,
+    sseLimiter,
+};

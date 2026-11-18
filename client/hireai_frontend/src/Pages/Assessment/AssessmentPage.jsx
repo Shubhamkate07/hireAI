@@ -47,7 +47,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import BackButton from '../../Components/BackButton';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getAssessment, submitAssessment } from '../../services/assessmentService';
 import './AssessmentPage.css';
@@ -226,6 +227,16 @@ const AssessmentPage = () => {
     //          ↑ derived value — computed from `answers` state, never stored separately
 
 
+    // ── Exit (exam mode has no navbar) ───────────────────────────────────────
+    const navigate = useNavigate();
+    const handleExit = () => {
+        const hasProgress = Object.keys(answers).length > 0;
+        if (hasProgress && !window.confirm('Leave this assessment? Your unsubmitted answers will be lost.')) return;
+        if (window.history.state?.idx > 0) navigate(-1);
+        else navigate('/jobs');
+    };
+
+
     // ── Render: Loading ───────────────────────────────────────────────────────
     if (isLoading) {
         return (
@@ -246,6 +257,9 @@ const AssessmentPage = () => {
                     <span className="ap-error-icon">⚠️</span>
                     <h2>Could not load assessment</h2>
                     <p>{error?.message ?? 'An unexpected error occurred'}</p>
+                    <div style={{ marginTop: '1.25rem' }}>
+                        <BackButton label="Go Back" fallback="/jobs" />
+                    </div>
                 </div>
             </div>
         );
@@ -335,9 +349,15 @@ const AssessmentPage = () => {
                     </p>
                 </div>
 
-                {/* Timer — turns red when ≤ 30 s left */}
-                <div className={`ap-timer ${isTimeLow ? 'ap-timer--low' : ''}`}>
-                    ⏱ {formatTime(timeLeft ?? 0)}
+                <div className="ap-header-right">
+                    {/* Timer — turns red when ≤ 30 s left */}
+                    <div className={`ap-timer ${isTimeLow ? 'ap-timer--low' : ''}`}>
+                        ⏱ {formatTime(timeLeft ?? 0)}
+                    </div>
+                    {/* Exam mode has no navbar — give candidates an explicit way out */}
+                    <button type="button" className="ap-exit-btn" onClick={handleExit}>
+                        ✕ Exit
+                    </button>
                 </div>
             </header>
 

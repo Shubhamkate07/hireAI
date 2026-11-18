@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Link } from 'react-router-dom';
 import { getAdminJobs, updateJobStatus, deleteJob } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminJobsPage = () => {
     const queryClient = useQueryClient();
@@ -78,10 +79,11 @@ const AdminJobsPage = () => {
     });
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin" className="admin-back-link">← Back to Admin Overview</Link>
+                    <BackButton to="/admin" label="Back to Admin Overview" />
                 </div>
                 <h1 className="admin-page-title">💼 Job Postings Management</h1>
                 <p className="admin-page-subtitle">View, update status, or hard delete job postings across all recruiters.</p>
@@ -259,6 +261,7 @@ const AdminJobsPage = () => {
                     </div>
                 </div>
             )}
+        </div>
         </div>
     );
 };

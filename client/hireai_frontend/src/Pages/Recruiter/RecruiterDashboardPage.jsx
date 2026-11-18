@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getRecruiterJobs, getRecruiterAssessments } from '../../services/recruiterService';
 import api from '../../services/api';
-import NotificationBell from '../../Components/NotificationBell';
 import { logoutUser } from '../../store/slices/authSlice';
 import './RecruiterDashboardPage.css';
 
@@ -61,25 +60,6 @@ const RecruiterDashboardPage = () => {
 
     return (
         <div className="recruiter-dashboard-page">
-            {/* Top Navigation Bar */}
-            <nav className="recruiter-nav">
-                <div className="nav-brand">
-                    <span className="logo">HireAI</span>
-                    <span className="portal-badge">Recruiter Portal</span>
-                </div>
-                <div className="nav-actions">
-                    <Link to="/dashboard" className="nav-link">Dashboard</Link>
-                    <Link to="/jobs" className="nav-link">Browse Jobs</Link>
-                    <Link to="/recruiter/analytics" className="nav-link" style={{ color: 'var(--color-accent)' }}>📊 Analytics</Link>
-                    <NotificationBell />
-                    <div className="user-profile">
-                        <span className="user-name">{user?.name}</span>
-                        <button id="logout-btn" className="logout-btn" onClick={handleLogout}>
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </nav>
 
             <main className="recruiter-main">
                 {/* Header Banner */}
@@ -93,7 +73,7 @@ const RecruiterDashboardPage = () => {
                             📝 + Create Assessment
                         </Link>
                         <Link to="/jobs" className="primary-btn">
-                            + View All Listings
+                            💼 Browse All Jobs
                         </Link>
                     </div>
                 </div>

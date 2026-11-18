@@ -51,6 +51,7 @@
  */
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import BackButton from '../../Components/BackButton'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getJobById, applyToJob } from '../../services/jobService'
 import { getAssessmentByJobId } from '../../services/assessmentService'
@@ -488,15 +489,10 @@ const JobDetailPage = () => {
         #apply-btn:active:not(:disabled) {
           transform: translateY(0);
         }
-        .back-link:hover {
-          color: #4f46e5;
-        }
       `}</style>
 
       {/* ── Back button ── */}
-      <Link to="/jobs" className="back-link" style={styles.backLink}>
-        ← Back to Jobs
-      </Link>
+      <BackButton to="/jobs" label="Back to Jobs" />
 
       {/* ── Loading ── */}
       {isLoading && <SkeletonDetail />}

@@ -30,6 +30,7 @@ const jobModel = require('../models/job.model');
 const ApiError = require('../utils/ApiError');
 const redis    = require('../config/redis');
 const config   = require('../config/env.config');
+const logger   = require('../utils/logger');
 
 // ─── Cache key prefix ────────────────────────────────────────────────────────
 // All job list cache entries start with 'jobs:list:'.
@@ -57,9 +58,7 @@ const invalidateJobsCache = async () => {
     const keys = await redis.keys(`${CACHE_PREFIX}*`);
     if (keys.length > 0) {
         await redis.del(...keys);
-        if (config.isDev) {
-            console.log(`🗑️  Cache invalidated: deleted ${keys.length} key(s)`);
-        }
+        logger.info(`🗑️ Cache invalidated: deleted ${keys.length} key(s)`);
     }
 };
 
@@ -121,16 +120,12 @@ const findJobs = async (
     const cached = await redis.get(cacheKey);
     if (cached) {
         // CACHE HIT — return immediately, no DB query needed
-        if (config.isDev) {
-            console.log(`⚡ Cache HIT for key: ${cacheKey}`);
-        }
+        logger.debug(`⚡ Cache HIT for key: ${cacheKey}`);
         return JSON.parse(cached);
     }
 
     // ── STEP 3: Cache miss — query the database ───────────────────────────────
-    if (config.isDev) {
-        console.log(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
-    }
+    logger.debug(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
     const [jobs, total] = await Promise.all([
         jobModel.findAllJobs(offset, limitNum, filters),
         jobModel.getJobCount(status, job_type, location, search),
@@ -147,12 +142,8 @@ const findJobs = async (
     };
 
     // ── STEP 4: Store result in Redis with a 60-second TTL ───────────────────
-    // 'EX' means "expire after X seconds". After 60s, Redis auto-deletes this
-    // key even if we forget to invalidate — a safety net against stale data.
     await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
-    if (config.isDev) {
-        console.log(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
-    }
+    logger.debug(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
 
     return result;
 };

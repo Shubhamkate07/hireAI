@@ -25,16 +25,16 @@ const router = express.Router();
 
 // ─── POST /api/jobs/:jobId/apply ──────────────────────────────────────────────
 // Middleware chain (runs left to right):
-//   1. applyLimiter        — rate limit to prevent spam applications (max 10 / 15m)
-//   2. authMiddleware       — verify JWT, attach req.user
-//   3. rbacMiddleware       — confirm role === 'candidate'
+//   1. authMiddleware       — verify JWT, attach req.user (MUST run before applyLimiter so userId is known)
+//   2. rbacMiddleware       — confirm role === 'candidate'
+//   3. applyLimiter         — rate limit per user (max 10 / 15m)
 //   4. upload.single('resume') — parse the multipart body, save file to disk
 //   5. applicationController.applyToJob — business logic
 router.post(
     '/:jobId/apply',
-    applyLimiter,
     authMiddleware,
     rbacMiddleware(['candidate']),
+    applyLimiter,
     upload.single('resume'),
     applicationController.applyToJob
 );

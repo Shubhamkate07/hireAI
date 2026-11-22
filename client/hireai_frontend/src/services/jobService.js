@@ -57,7 +57,15 @@ export const getJobById = async (id) => {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// applyToJob(jobId, resumeFile)
+// getMyApplications()
+//
+// Fetches applications submitted by the logged-in candidate: GET /api/applications/my
+// ─────────────────────────────────────────────────────────────────────────────
+export const getMyApplications = async () => {
+  const response = await api.get('/applications/my')
+  return response.data.data
+}
+
 //
 // Posts to POST /api/jobs/:jobId/apply as multipart/form-data.
 //
@@ -75,5 +83,14 @@ export const applyToJob = async (jobId, resumeFile) => {
 
   // Correct — let axios/browser set Content-Type automatically
   const response = await api.post(`/jobs/${jobId}/apply`, formData)
+  return response.data.data
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createJob(jobData)
+// POST /api/jobs — creates a new job posting (recruiter/admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+export const createJob = async (jobData) => {
+  const response = await api.post('/jobs', jobData)
   return response.data.data
 }

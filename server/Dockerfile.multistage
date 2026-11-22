@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -19,6 +19,9 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/server.js ./server.js
+
+# Ensure uploads directory structure exists in production container
+RUN mkdir -p uploads/resumes
 
 EXPOSE 5000
 

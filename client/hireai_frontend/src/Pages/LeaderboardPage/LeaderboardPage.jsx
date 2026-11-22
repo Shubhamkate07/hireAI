@@ -28,7 +28,7 @@ const LeaderboardPage = () => {
   useEffect(() => {
     if (!assessmentId) return;
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const apiUrl = import.meta.env.VITE_API_URL || '/api';
     const sseUrl = `${apiUrl}/sse/connect?assessmentId=${assessmentId}`;
 
     // Reconnects with a refreshed token if the server rejects us with 401
@@ -38,7 +38,6 @@ const LeaderboardPage = () => {
         try {
           const payload = JSON.parse(event.data);
           if (payload.type === 'leaderboard_updated' && Number(payload.assessmentId) === Number(assessmentId)) {
-            console.log('⚡ Live SSE Leaderboard Update received!', payload);
             refetch();
           }
         } catch (err) {

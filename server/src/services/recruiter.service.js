@@ -30,6 +30,7 @@ const jobModel            = require('../models/job.model');
 const assessmentModel     = require('../models/assessment.model');
 const ApiError            = require('../utils/ApiError');
 const notificationService = require('./notification.service');
+const redis               = require('../config/redis');
 
 // ── Lazy-load sseService to avoid circular dependency ────────────────────────
 // recruiter.service → sse.service is a new import. Using lazy-require (inside
@@ -145,6 +146,18 @@ const updateApplicationStatus = async (applicationId, recruiterId, newStatus, no
     // If they're not connected, sendToUser is a no-op (safe to call always).
     if (newStatus === 'hired') {
         getSseService().sendToUser(recruiterId, { type: 'analytics_updated' });
+    }
+
+    // ── Invalidate Redis Analytics Cache so numbers reflect status updates ──
+    try {
+        await Promise.all([
+            redis.del(`analytics:recruiter:${recruiterId}`),
+            redis.del(`analytics:recruiter:apps:${recruiterId}`),
+            redis.del(`analytics:hiring-speed:${recruiterId}`),
+            redis.del('analytics:platform'),
+        ]);
+    } catch (e) {
+        // Safe fallback if redis is down
     }
 
     // ── Step 6: Return the full updated application object ──────────────────

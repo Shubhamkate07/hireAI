@@ -9,6 +9,7 @@ import {
     deleteAdminQuestion,
     getAdminJobs,
 } from '../../services/adminService';
+import { generateAssessmentQuestionsAI } from '../../services/aiService';
 import './AdminDashboard.css';
 import BackButton from '../../Components/BackButton';
 
@@ -27,6 +28,84 @@ const AdminEditAssessmentPage = () => {
     const [actionSuccess, setActionSuccess] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
+    // AI Question Generator Modal State
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiRole, setAiRole] = useState('');
+    const [aiDifficulty, setAiDifficulty] = useState('Intermediate');
+    const [aiCount, setAiCount] = useState(5);
+    const [aiMode, setAiMode] = useState('append'); // 'append' | 'replace'
+    const [aiModalError, setAiModalError] = useState('');
+    const [aiSuccessMessage, setAiSuccessMessage] = useState('');
+
+    // AI Question Generation Mutation
+    const generateQuestionsMutation = useMutation({
+        mutationFn: generateAssessmentQuestionsAI,
+        onSuccess: (generatedQuestions) => {
+            if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+                setAiModalError('No questions were generated. Please try again with a different title or prompt.');
+                return;
+            }
+
+            const formatted = generatedQuestions.map((q) => {
+                let opts = ['', '', '', ''];
+                if (Array.isArray(q.options) && q.options.length > 0) {
+                    opts = [...q.options, '', '', '', ''].slice(0, 4);
+                }
+                return {
+                    id: null, // new questions
+                    question_text: q.question_text || '',
+                    question_type: q.question_type || 'mcq',
+                    options: opts,
+                    correct_answer: q.correct_answer || (opts[0] || ''),
+                    points: Number(q.points) > 0 ? Number(q.points) : 10,
+                };
+            });
+
+            if (aiMode === 'replace') {
+                setQuestions(formatted);
+            } else {
+                setQuestions((prev) => [...prev, ...formatted]);
+            }
+
+            setActionSuccess(`✨ Generated ${formatted.length} questions successfully with Gemini AI! Remember to click "Save All Changes" to persist them.`);
+            setAiSuccessMessage(`✨ Generated ${formatted.length} questions successfully!`);
+            setIsAiModalOpen(false);
+            setAiModalError('');
+        },
+        onError: (err) => {
+            setAiModalError(err?.response?.data?.message || err?.message || 'Failed to generate questions with AI.');
+        },
+    });
+
+    const handleOpenAiModal = () => {
+        if (!aiRole.trim()) {
+            if (title.trim()) {
+                setAiRole(title.trim().replace(/\s*(Technical Screen|Assessment|Quiz)$/i, ''));
+            } else if (jobId) {
+                const matchingJob = jobs.find((j) => String(j.id) === String(jobId));
+                if (matchingJob) {
+                    setAiRole(matchingJob.title);
+                }
+            }
+        }
+        setAiModalError('');
+        setIsAiModalOpen(true);
+    };
+
+    const handleAiSubmit = (e) => {
+        e.preventDefault();
+        if (!aiRole.trim()) {
+            setAiModalError('Please enter a role or topic.');
+            return;
+        }
+        setAiModalError('');
+        generateQuestionsMutation.mutate({
+            roleTitle: aiRole.trim(),
+            difficulty: aiDifficulty,
+            count: aiCount,
+        });
+    };
+
     // Fetch assessment full details (with questions and correct_answers)
     const { data: assessmentData, isLoading: isAssessmentLoading, isError, error } = useQuery({
         queryKey: ['admin', 'assessment', assessmentId],
@@ -37,7 +116,7 @@ const AdminEditAssessmentPage = () => {
     // Fetch jobs for dropdown selection
     const { data: jobsData } = useQuery({
         queryKey: ['admin', 'jobs-dropdown'],
-        queryFn: () => getAdminJobs({ pageParam: 1 }),
+        queryFn: () => getAdminJobs({ pageParam: 1, limit: 100 }),
     });
 
     const jobs = jobsData?.jobs || [];
@@ -61,7 +140,7 @@ const AdminEditAssessmentPage = () => {
                                 ? [...q.options, '', '', '', ''].slice(0, 4)
                                 : ['', '', '', ''],
                         correct_answer: q.correct_answer || '',
-                        points: q.points || 10,
+                        points: q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
                     }))
                 );
             } else {
@@ -85,6 +164,9 @@ const AdminEditAssessmentPage = () => {
     };
 
     const handleRemoveQuestionCard = async (index, qId) => {
+        if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
+            return;
+        }
         if (qId) {
             try {
                 await deleteAdminQuestion(qId);
@@ -146,21 +228,28 @@ const AdminEditAssessmentPage = () => {
             });
 
             // 2. Sync questions (update existing ones, create new ones)
-            for (const q of questions) {
+            const updatedList = [...questions];
+            for (let i = 0; i < updatedList.length; i++) {
+                const q = updatedList[i];
                 const payload = {
                     question_text: q.question_text.trim(),
                     question_type: q.question_type || 'mcq',
-                    options: q.options.filter((opt) => opt.trim() !== ''),
-                    correct_answer: q.correct_answer.trim(),
-                    points: Number(q.points) || 10,
+                    options: (q.options || []).filter((opt) => opt.trim() !== ''),
+                    correct_answer: (q.correct_answer || '').trim(),
+                    points: q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
                 };
 
                 if (q.id) {
                     await updateAdminQuestion(q.id, payload);
                 } else {
-                    await addAdminQuestion(assessmentId, payload);
+                    const res = await addAdminQuestion(assessmentId, payload);
+                    const newId = res?.id || res?.data?.id || res?.questionId;
+                    if (newId) {
+                        q.id = newId;
+                    }
                 }
             }
+            setQuestions(updatedList);
 
             setActionSuccess('Assessment and questions updated successfully!');
             queryClient.invalidateQueries({ queryKey: ['admin', 'assessment', assessmentId] });
@@ -283,18 +372,60 @@ const AdminEditAssessmentPage = () => {
 
                 {/* 2. Questions Editor Card */}
                 <div className="admin-card" style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    {aiSuccessMessage && (
+                        <div className="admin-alert admin-alert-success" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{aiSuccessMessage}</span>
+                            <button
+                                type="button"
+                                onClick={() => setAiSuccessMessage('')}
+                                style={{ background: 'none', border: 'none', color: '#16a34a', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                         <h2 style={{ fontSize: '1.15rem', color: '#f8fafc', margin: 0 }}>
                             ❓ Questions ({questions.length})
                         </h2>
-                        <button
-                            type="button"
-                            onClick={handleAddQuestionCard}
-                            className="btn-action btn-activate"
-                            style={{ padding: '8px 16px' }}
-                        >
-                            + Add Question
-                        </button>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <button
+                                type="button"
+                                onClick={handleOpenAiModal}
+                                className="btn-action"
+                                style={{
+                                    background: 'linear-gradient(135deg, #4f46e5, #9333ea)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    height: '38px',
+                                    padding: '0 16px',
+                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+                                }}
+                            >
+                                ✨ Generate with AI
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleAddQuestionCard}
+                                className="btn-action btn-activate"
+                                style={{
+                                    height: '38px',
+                                    padding: '0 16px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                }}
+                            >
+                                + Add Question
+                            </button>
+                        </div>
                     </div>
 
                     {questions.length === 0 ? (
@@ -347,6 +478,7 @@ const AdminEditAssessmentPage = () => {
                                         <label className="admin-label">Points</label>
                                         <input
                                             type="number"
+                                            min="0"
                                             value={q.points}
                                             onChange={(e) => handleQuestionChange(qIdx, 'points', e.target.value)}
                                             className="admin-input"
@@ -356,36 +488,75 @@ const AdminEditAssessmentPage = () => {
 
                                 {/* Options & Correct Answer Selection */}
                                 {q.question_type === 'mcq' && (
-                                    <div style={{ marginTop: '12px', background: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
-                                        <label className="admin-label" style={{ marginBottom: '8px', display: 'block' }}>
-                                            Options & Select Correct Answer (●):
+                                    <div style={{ marginTop: '12px', background: 'rgba(255, 255, 255, 0.02)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                        <label className="admin-label" style={{ marginBottom: '10px', display: 'block' }}>
+                                            Options & Select Correct Answer:
                                         </label>
-                                        {q.options.map((optText, optIdx) => {
-                                            const letter = String.fromCharCode(65 + optIdx);
-                                            const isCorrect = q.correct_answer !== '' && q.correct_answer === optText;
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                                            {q.options.map((optText, optIdx) => {
+                                                const letter = String.fromCharCode(65 + optIdx);
+                                                const isCorrect = q.correct_answer !== '' && q.correct_answer === optText;
 
-                                            return (
-                                                <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`correct_${qIdx}`}
-                                                        checked={isCorrect}
-                                                        onChange={() => handleQuestionChange(qIdx, 'correct_answer', optText)}
-                                                        disabled={!optText.trim()}
-                                                        title="Mark as correct answer"
-                                                    />
-                                                    <span style={{ color: '#94a3b8', fontWeight: 700, width: '20px' }}>{letter}.</span>
-                                                    <input
-                                                        type="text"
-                                                        value={optText}
-                                                        onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                                                        placeholder={`Option ${letter}`}
-                                                        className="admin-input"
-                                                    />
-                                                    {isCorrect && <span style={{ color: '#34d399', fontSize: '0.85rem', fontWeight: 600 }}>✓ Correct</span>}
-                                                </div>
-                                            );
-                                        })}
+                                                return (
+                                                    <div
+                                                        key={optIdx}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            background: isCorrect ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                                                            border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`,
+                                                            borderRadius: '8px',
+                                                            padding: '6px 10px',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        <span style={{ color: isCorrect ? '#4ade80' : '#94a3b8', fontWeight: 700, width: '20px' }}>{letter}.</span>
+                                                        <input
+                                                            type="text"
+                                                            value={optText}
+                                                            onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
+                                                            placeholder={`Option ${letter}`}
+                                                            style={{
+                                                                flex: 1,
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: '#f8fafc',
+                                                                fontSize: '0.9rem',
+                                                                outline: 'none',
+                                                                minWidth: '60px'
+                                                            }}
+                                                        />
+                                                        <label
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                cursor: optText.trim() ? 'pointer' : 'default',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '6px',
+                                                                background: isCorrect ? '#16a34a' : 'rgba(255, 255, 255, 0.05)',
+                                                                color: isCorrect ? '#ffffff' : '#94a3b8',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 600,
+                                                                whiteSpace: 'nowrap',
+                                                                flexShrink: 0
+                                                            }}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                name={`correct_${qIdx}`}
+                                                                checked={isCorrect}
+                                                                onChange={() => handleQuestionChange(qIdx, 'correct_answer', optText)}
+                                                                disabled={!optText.trim()}
+                                                                style={{ margin: 0, cursor: 'pointer' }}
+                                                            />
+                                                            <span>{isCorrect ? 'Correct ✓' : 'Mark'}</span>
+                                                        </label>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -413,6 +584,183 @@ const AdminEditAssessmentPage = () => {
                     </button>
                 </div>
             </form>
+
+            {/* AI Question Generator Modal for Admin */}
+            {isAiModalOpen && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                        backdropFilter: 'blur(4px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: '1rem',
+                    }}
+                    onClick={() => !generateQuestionsMutation.isPending && setIsAiModalOpen(false)}
+                >
+                    <div
+                        style={{
+                            background: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '16px',
+                            width: '100%',
+                            maxWidth: '520px',
+                            padding: '2rem',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                            color: '#f8fafc',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1.6rem' }}>✨</span>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#f8fafc' }}>
+                                        AI Question Generator (Admin)
+                                    </h3>
+                                    <span style={{ fontSize: '0.8rem', color: '#818cf8', fontWeight: 600 }}>
+                                        Powered by Google Gemini
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsAiModalOpen(false)}
+                                style={{
+                                    background: '#334155',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: '#94a3b8',
+                                    fontWeight: 700,
+                                }}
+                                disabled={generateQuestionsMutation.isPending}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {aiModalError && (
+                            <div className="admin-alert admin-alert-danger" style={{ marginBottom: '1.25rem' }}>
+                                <span>⚠️ {aiModalError}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleAiSubmit}>
+                            <div className="admin-form-group">
+                                <label className="admin-label">Job Role / Tech Stack *</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Senior React Developer, Node.js Backend..."
+                                    value={aiRole}
+                                    onChange={(e) => setAiRole(e.target.value)}
+                                    className="admin-input"
+                                    disabled={generateQuestionsMutation.isPending}
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.25rem' }}>
+                                <div>
+                                    <label className="admin-label">Difficulty Level</label>
+                                    <select
+                                        value={aiDifficulty}
+                                        onChange={(e) => setAiDifficulty(e.target.value)}
+                                        className="admin-select"
+                                        disabled={generateQuestionsMutation.isPending}
+                                    >
+                                        <option value="Beginner">Beginner (Junior)</option>
+                                        <option value="Intermediate">Intermediate (Mid-level)</option>
+                                        <option value="Advanced">Advanced (Senior / Lead)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="admin-label">Question Count</label>
+                                    <select
+                                        value={aiCount}
+                                        onChange={(e) => setAiCount(Number(e.target.value))}
+                                        className="admin-select"
+                                        disabled={generateQuestionsMutation.isPending}
+                                    >
+                                        <option value={3}>3 Questions</option>
+                                        <option value={5}>5 Questions</option>
+                                        <option value={8}>8 Questions</option>
+                                        <option value={10}>10 Questions</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label className="admin-label">Action Mode</label>
+                                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '6px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                        <input
+                                            type="radio"
+                                            name="adminAiMode"
+                                            value="append"
+                                            checked={aiMode === 'append'}
+                                            onChange={() => setAiMode('append')}
+                                            disabled={generateQuestionsMutation.isPending}
+                                        />
+                                        Append to existing questions
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: '#cbd5e1' }}>
+                                        <input
+                                            type="radio"
+                                            name="adminAiMode"
+                                            value="replace"
+                                            checked={aiMode === 'replace'}
+                                            onChange={() => setAiMode('replace')}
+                                            disabled={generateQuestionsMutation.isPending}
+                                        />
+                                        Replace all questions
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAiModalOpen(false)}
+                                    className="btn-cancel"
+                                    style={{ padding: '8px 16px' }}
+                                    disabled={generateQuestionsMutation.isPending}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn-action"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #4f46e5, #9333ea)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '8px 20px',
+                                        fontWeight: 700,
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                    }}
+                                    disabled={generateQuestionsMutation.isPending}
+                                >
+                                    {generateQuestionsMutation.isPending ? '✨ Generating...' : '✨ Generate Questions'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
         </div>
     );

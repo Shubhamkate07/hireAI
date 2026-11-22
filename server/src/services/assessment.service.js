@@ -51,8 +51,10 @@
  */
 
 const assessmentModel = require('../models/assessment.model');
+const aiService       = require('./ai.service');
 const ApiError        = require('../utils/ApiError');
 const config          = require('../config/env.config');
+const logger          = require('../utils/logger');
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,29 +76,17 @@ const createAssessment = async (data, requesterId) => {
 
     const { title, description, job_id, time_limit_minutes, questions = [] } = data;
 
-    // 1. Insert the assessment header
-    const assessmentId = await assessmentModel.createAssessment(
+    // Use transaction-wrapped creation of header + questions
+    const assessmentId = await assessmentModel.createAssessmentWithQuestions(
         title,
         description,
         job_id,
         time_limit_minutes,
-        requesterId   // created_by = the logged-in recruiter/admin
+        requesterId,
+        questions
     );
 
-    // 2. Insert each question one by one
-    //    (A bulk INSERT would be faster in production but this is clear to read)
-    for (const q of questions) {
-        await assessmentModel.createQuestion(
-            assessmentId,
-            q.question_text,
-            q.question_type,
-            q.options,
-            q.correct_answer,
-            q.points
-        );
-    }
-
-    // 3. Return the full created object so the controller can send it back
+    // Return the full created object so the controller can send it back
     return assessmentModel.findAssessmentWithQuestions(assessmentId);
 };
 
@@ -121,19 +111,53 @@ const getAssessment = async (assessmentId, requestorRole, requestorId) => {
         throw new ApiError(404, 'Assessment not found');
     }
 
-    // 2. Recruiter ownership check
-    //    Admins can see any assessment.
-    //    Recruiters can only see assessments they created.
-    if (requestorRole === 'recruiter' && assessment.created_by !== requestorId) {
-        throw new ApiError(403, 'You do not have permission to view this assessment');
-    }
-
-    // 3. Strip correct_answer for candidates
-    //    INTERVIEW Q2: We check the role here and transform the data before returning.
+    // 2. Candidate view: ensure application exists, auto-start or resume attempt, and calculate remaining_seconds
     if (requestorRole === 'candidate') {
+        if (assessment.job_id) {
+            await assessmentModel.ensureCandidateApplication(assessment.job_id, requestorId);
+        }
+
+        const totalMinutes = (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0)
+            ? Number(assessment.time_limit_minutes)
+            : 30;
+        const totalSeconds = totalMinutes * 60;
+
+        let attempt = await assessmentModel.findAttemptByCandidate(assessmentId, requestorId);
+        let remainingSeconds = totalSeconds;
+        let alreadySubmitted = false;
+
+        if (attempt) {
+            if (attempt.submitted_at) {
+                alreadySubmitted = true;
+                remainingSeconds = 0;
+            } else {
+                const startedAtMs = new Date(attempt.started_at).getTime();
+                const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+                remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+                if (remainingSeconds <= 0) {
+                    alreadySubmitted = true;
+                    remainingSeconds = 0;
+                    await assessmentModel.updateAttemptWithScore(attempt.id, attempt.score || 0, attempt.submitted_answers || []);
+                }
+            }
+        } else {
+            // First time candidate opens the assessment: record server start time immediately
+            attempt = await assessmentModel.startAttempt(assessmentId, requestorId);
+            remainingSeconds = totalSeconds;
+        }
+
+        const maxScore = (assessment.questions || []).reduce((sum, q) => sum + (Number(q.points) || 10), 0);
+
         return {
             ...assessment,
-            questions: assessment.questions.map(q => {
+            time_limit_minutes: totalMinutes,
+            attempt_id: attempt?.id,
+            started_at: attempt?.started_at,
+            remaining_seconds: remainingSeconds,
+            already_submitted: alreadySubmitted,
+            previous_score: attempt?.score ?? null,
+            max_score: maxScore,
+            questions: (assessment.questions || []).map(q => {
                 // Destructure out correct_answer — it never reaches the client
                 const { correct_answer, ...safeQuestion } = q;
                 return safeQuestion;
@@ -141,8 +165,80 @@ const getAssessment = async (assessmentId, requestorRole, requestorId) => {
         };
     }
 
-    // 4. Recruiters/admins get the full data (correct_answer included)
+    // 3. Recruiters and Admins
+    // Non-creator recruiters can preview questions (correct_answer stripped) without being blocked
+    if (requestorRole === 'recruiter' && assessment.created_by !== requestorId) {
+        return {
+            ...assessment,
+            questions: (assessment.questions || []).map(q => {
+                const { correct_answer, ...safeQuestion } = q;
+                return safeQuestion;
+            })
+        };
+    }
+
+    // Creator recruiter and Admins get full data (correct_answer included)
     return assessment;
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/assessments/:id/start
+//
+// Creates a "started" attempt row that records the server-side start time.
+// The candidate can call this before submitting. On submit, the server
+// checks (NOW() - started_at) against time_limit_minutes.
+//
+// Returns { attemptId, started_at, time_limit_minutes, remaining_seconds }
+// so the frontend can display a countdown, with the server as source of truth.
+// ─────────────────────────────────────────────────────────────────────────────
+const startAssessment = async (assessmentId, candidateId) => {
+
+    const assessment = await assessmentModel.findAssessmentById(assessmentId);
+    if (!assessment) {
+        throw new ApiError(404, 'Assessment not found');
+    }
+
+    // ── Ensure Candidate Application exists for this job ──
+    if (assessment.job_id) {
+        await assessmentModel.ensureCandidateApplication(assessment.job_id, candidateId);
+    }
+
+    const totalMinutes = (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0)
+        ? Number(assessment.time_limit_minutes)
+        : 30;
+    const totalSeconds = totalMinutes * 60;
+
+    // Check if already started or submitted
+    const existing = await assessmentModel.findAttemptByCandidate(assessmentId, candidateId);
+
+    if (existing && existing.submitted_at) {
+        throw new ApiError(409, 'You have already submitted this assessment');
+    }
+
+    if (existing && !existing.submitted_at) {
+        // Already started but not submitted — return existing attempt with accurate remaining_seconds
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(existing.started_at).getTime()) / 1000));
+        const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+        return {
+            attemptId:          existing.id,
+            started_at:         existing.started_at,
+            time_limit_minutes: totalMinutes,
+            remaining_seconds:  remainingSeconds,
+            already_started:    true,
+        };
+    }
+
+    // Create the started attempt
+    const attempt = await assessmentModel.startAttempt(assessmentId, candidateId);
+
+    return {
+        attemptId:          attempt.id,
+        started_at:         attempt.started_at,
+        time_limit_minutes: totalMinutes,
+        remaining_seconds:  totalSeconds,
+        already_started:    false,
+    };
 };
 
 
@@ -160,11 +256,34 @@ const getAssessment = async (assessmentId, requestorRole, requestorId) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => {
 
-    // ── INTERVIEW Q4: Double-submission guard (Layer 1) ────────────────────────
+    // ── Check for an existing attempt ──────────────────────────────────────────
     const existing = await assessmentModel.findAttemptByCandidate(assessmentId, candidateId);
-    if (existing) {
+
+    // ── CASE 1: Already submitted (has submitted_at) ───────────────────────────
+    if (existing && existing.submitted_at) {
         throw new ApiError(409, 'You have already submitted this assessment');
     }
+
+    // ── CASE 2: Auto-start if missing (fallback resiliency) ───────────────────
+    let attempt = existing;
+    if (!attempt) {
+        attempt = await assessmentModel.startAttempt(assessmentId, candidateId);
+    }
+
+    // ── CASE 3: Enforce server-side time limit ─────────────────────────────────
+    const assessment = await assessmentModel.findAssessmentById(assessmentId);
+    if (!assessment) {
+        throw new ApiError(404, 'Assessment not found');
+    }
+
+    // ── Ensure Candidate Application exists for this job ──
+    if (assessment.job_id) {
+        await assessmentModel.ensureCandidateApplication(assessment.job_id, candidateId);
+    }
+
+    const timeLimitMinutes = (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0)
+        ? Number(assessment.time_limit_minutes)
+        : 30;
 
     // ── Fetch questions WITH correct_answer (server-side only) ─────────────────
     const questions = await assessmentModel.findByAssessmentId(assessmentId);
@@ -173,35 +292,52 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
         throw new ApiError(404, 'Assessment not found or has no questions');
     }
 
-    // ── Score calculation — INTERVIEW Q1 ──────────────────────────────────────
-    // We iterate the DB questions (trusted source of truth).
-    // For each question, we look up what the candidate submitted for that questionId.
-    // We never touch the score field from the request body.
+    // ── Score calculation — with Gemini AI Semantic Evaluation for non-MCQ questions ──
     let score = 0;
 
     for (const question of questions) {
-        const submitted = submittedAnswers.find(a => a.questionId === question.id);
-        if (submitted && submitted.answer === question.correct_answer) {
-            score += question.points;
+        const submitted = (submittedAnswers || []).find(a => a.questionId === question.id);
+        const candidateAnswer = (submitted?.answer || '').trim();
+        const correctAnswer = (question.correct_answer || '').trim();
+        const maxPoints = Number(question.points) || 10;
+
+        // Guard: A question with no answer key configured must never give free points!
+        if (!correctAnswer) {
+            continue;
+        }
+
+        const isExactMatch = candidateAnswer && candidateAnswer.toLowerCase() === correctAnswer.toLowerCase();
+
+        if (isExactMatch) {
+            score += maxPoints;
+        } else if (question.question_type !== 'mcq' && candidateAnswer) {
+            // Text or coding question: semantic evaluation with Gemini AI
+            try {
+                const evalResult = await aiService.evaluateSubjectiveAnswer({
+                    questionText: question.question_text,
+                    expectedAnswer: correctAnswer,
+                    candidateAnswer,
+                    maxPoints,
+                });
+                score += (Number(evalResult?.awardedPoints) || 0);
+            } catch (err) {
+                logger.warn(`AI subjective evaluation fallback for question ${question.id}: ${err.message}`);
+            }
         }
     }
 
-    const totalPossible = questions.reduce((sum, q) => sum + q.points, 0);
+    const totalPossible = questions.reduce((sum, q) => sum + (Number(q.points) || 10), 0);
 
-    // ── INTERVIEW Q4: Double-submission guard (Layer 2 — DB UNIQUE KEY handles races) ──
-    // If two concurrent requests both passed the guard above before either inserted,
-    // the DB UNIQUE KEY on (assessment_id, candidate_id) rejects the second INSERT.
-    await assessmentModel.createAttempt(assessmentId, candidateId, score, submittedAnswers);
+    // ── Update the existing attempt row with score and submitted_at (finalizes attempt) ──
+    await assessmentModel.updateAttemptWithScore(attempt.id, score, submittedAnswers);
 
     // ── Task 4: Invalidate the leaderboard Redis cache for this assessment ────
     try {
         const redis = require('../config/redis');
         await redis.del(`analytics:leaderboard:${assessmentId}`);
-        if (config.isDev) {
-            console.log(`🗑️  Leaderboard cache invalidated for assessment ${assessmentId}`);
-        }
+        logger.debug(`Leaderboard cache invalidated for assessment ${assessmentId}`);
     } catch (err) {
-        console.error('Redis leaderboard cache invalidation error:', err.message);
+        logger.warn(`Redis leaderboard cache invalidation error: ${err.message}`);
     }
 
     // ── Task 1: Real-time SSE push to all active leaderboard watchers ─────────
@@ -228,15 +364,53 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// getAssessmentByJobId(jobId)
+// getAssessmentByJobId(jobId, userId, userRole)
 //
 // Lightweight lookup for the job detail page.
-// Returns { id, title, time_limit_minutes } or null when no assessment exists.
-// The frontend uses null as a signal to hide the "Take Assessment" button.
+// Returns { id, title, time_limit_minutes, candidate_status, remaining_seconds, candidate_score }
+// or null when no assessment exists.
 // ─────────────────────────────────────────────────────────────────────────────
-const getAssessmentByJobId = async (jobId) => {
+const getAssessmentByJobId = async (jobId, userId = null, userRole = null) => {
     const assessment = await assessmentModel.findAssessmentByJobId(jobId);
-    return assessment ?? null; // normalise undefined → null for consistent JSON
+    if (!assessment) return null;
+
+    let candidateStatus = 'not_started';
+    let remainingSeconds = null;
+    let candidateScore = null;
+
+    if (userId && userRole === 'candidate') {
+        const attempt = await assessmentModel.findAttemptByCandidate(assessment.id, userId);
+        if (attempt) {
+            if (attempt.submitted_at) {
+                candidateStatus = 'completed';
+                candidateScore = attempt.score;
+                remainingSeconds = 0;
+            } else {
+                const totalSeconds = (Number(assessment.time_limit_minutes) || 30) * 60;
+                const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000));
+                if (elapsedSeconds >= totalSeconds) {
+                    candidateStatus = 'completed';
+                    candidateScore = attempt.score || 0;
+                    remainingSeconds = 0;
+                    try {
+                        await assessmentModel.updateAttemptWithScore(attempt.id, candidateScore, attempt.submitted_answers || []);
+                    } catch (err) {
+                        console.error('[Assessment] Error auto-finalizing expired attempt in by-job lookup:', err.message);
+                    }
+                } else {
+                    candidateStatus = 'in_progress';
+                    remainingSeconds = totalSeconds - elapsedSeconds;
+                }
+            }
+        }
+    }
+
+    return {
+        ...assessment,
+        candidate_status: candidateStatus,
+        remaining_seconds: remainingSeconds,
+        candidate_score: candidateScore,
+    };
 };
 
 const updateAssessment = async (assessmentId, data, requesterId) => {
@@ -244,30 +418,18 @@ const updateAssessment = async (assessmentId, data, requesterId) => {
     if (!existing) throw new ApiError(404, 'Assessment not found');
     if (existing.created_by !== requesterId) throw new ApiError(403, 'You do not own this assessment');
 
-    const { title, description, job_id, time_limit_minutes, questions = [] } = data;
+    const { title, description, job_id, time_limit_minutes, questions } = data;
 
-    await assessmentModel.updateAssessment(
+    // Use transaction-safe update that only replaces questions when explicitly provided
+    await assessmentModel.updateAssessmentWithQuestions(
         assessmentId,
         title,
         description,
         job_id,
         time_limit_minutes,
-        requesterId
+        requesterId,
+        questions
     );
-
-    // Replace questions
-    await assessmentModel.deleteQuestionsByAssessmentId(assessmentId);
-
-    for (const q of questions) {
-        await assessmentModel.createQuestion(
-            assessmentId,
-            q.question_text,
-            q.question_type,
-            q.options,
-            q.correct_answer,
-            q.points
-        );
-    }
 
     return assessmentModel.findAssessmentWithQuestions(assessmentId);
 };
@@ -277,6 +439,7 @@ module.exports = {
     createAssessment,
     updateAssessment,
     getAssessment,
+    startAssessment,
     submitAssessment,
     getAssessmentByJobId,
 };

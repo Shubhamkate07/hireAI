@@ -23,9 +23,9 @@ const { sseLimiter } = require('../middleware/rateLimit.middleware');
 const router = express.Router();
 
 // GET /api/sse/connect
-// sseLimiter prevents connection flooding (max 15 / 5m).
 // authMiddleware verifies JWT cookie → populates req.user.
+// sseLimiter prevents connection flooding per user.
 // Then sseController.connect opens the persistent stream.
-router.get('/connect', sseLimiter, authMiddleware, sseController.connect);
+router.get('/connect', authMiddleware, sseLimiter, sseController.connect);
 
 module.exports = router;

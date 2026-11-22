@@ -36,8 +36,9 @@
  * ============================================================
  */
 import { Component } from 'react'
+import { useLocation } from 'react-router-dom'
 
-class ErrorBoundary extends Component {
+class ErrorBoundaryInner extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -58,6 +59,13 @@ class ErrorBoundary extends Component {
    */
   componentDidCatch(error, info) {
     console.error('[ErrorBoundary] Uncaught render error:', error, info.componentStack)
+  }
+
+  /** Clear error state automatically if the route / URL changes */
+  componentDidUpdate(prevProps) {
+    if (this.state.hasError && prevProps.locationKey !== this.props.locationKey) {
+      this.setState({ hasError: false, error: null })
+    }
   }
 
   /** Reset state to let the user retry rendering the failed subtree. */
@@ -191,6 +199,18 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
   },
+}
+
+const ErrorBoundary = (props) => {
+  let locationKey = ''
+  try {
+    const location = useLocation()
+    locationKey = location.pathname
+  } catch (err) {
+    locationKey = typeof window !== 'undefined' ? window.location.pathname : ''
+  }
+
+  return <ErrorBoundaryInner key={locationKey} locationKey={locationKey} {...props} />
 }
 
 export default ErrorBoundary

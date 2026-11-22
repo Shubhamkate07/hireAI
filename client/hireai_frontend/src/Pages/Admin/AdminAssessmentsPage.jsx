@@ -43,12 +43,21 @@ const AdminAssessmentsPage = () => {
     return (
         <div className="admin-shell">
             <div className="admin-page-container">
-            <div className="admin-header-banner">
-                <div className="admin-breadcrumb">
-                    <BackButton to="/admin" label="Back to Admin Overview" />
+            <div className="admin-header-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    <div className="admin-breadcrumb">
+                        <BackButton to="/admin" label="Back to Admin Overview" />
+                    </div>
+                    <h1 className="admin-page-title">📝 Technical Assessments Management</h1>
+                    <p className="admin-page-subtitle">Inspect, edit, create, or remove technical quizzes across all recruiters.</p>
                 </div>
-                <h1 className="admin-page-title">📝 Technical Assessments Management</h1>
-                <p className="admin-page-subtitle">Inspect, edit, or remove technical quizzes across all recruiters.</p>
+                <Link
+                    to="/recruiter/assessments/new"
+                    className="admin-btn-primary"
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.9rem', fontWeight: 700 }}
+                >
+                    ➕ Create New Assessment
+                </Link>
             </div>
 
             {actionSuccess && (

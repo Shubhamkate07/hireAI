@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getAdminJobs, updateJobStatus, deleteJob } from '../../services/adminService';
+import CreateJobModal from '../../Components/CreateJobModal';
 import './AdminDashboard.css';
 import BackButton from '../../Components/BackButton';
 
@@ -12,6 +13,7 @@ const AdminJobsPage = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [actionError, setActionError] = useState('');
     const [actionSuccess, setActionSuccess] = useState('');
+    const [showCreateJobModal, setShowCreateJobModal] = useState(false);
 
     // Modal state for hard delete confirmation
     const [deleteModalJob, setDeleteModalJob] = useState(null);
@@ -26,8 +28,8 @@ const AdminJobsPage = () => {
         isError,
         error,
     } = useInfiniteQuery({
-        queryKey: ['admin', 'jobs'],
-        queryFn: getAdminJobs,
+        queryKey: ['admin', 'jobs', searchTerm, statusFilter],
+        queryFn: ({ pageParam = 1 }) => getAdminJobs({ pageParam, search: searchTerm, status: statusFilter }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) =>
             lastPage.pagination.page < lastPage.pagination.totalPages
@@ -69,24 +71,28 @@ const AdminJobsPage = () => {
         },
     });
 
-    // Filter jobs locally
-    const filteredJobs = allJobs.filter((job) => {
-        const matchesSearch =
-            job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.company.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    // Jobs are filtered server-side across all database records
+    const filteredJobs = allJobs;
 
     return (
         <div className="admin-shell">
             <div className="admin-page-container">
-            <div className="admin-header-banner">
-                <div className="admin-breadcrumb">
-                    <BackButton to="/admin" label="Back to Admin Overview" />
+            <div className="admin-header-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    <div className="admin-breadcrumb">
+                        <BackButton to="/admin" label="Back to Admin Overview" />
+                    </div>
+                    <h1 className="admin-page-title">💼 Job Postings Management</h1>
+                    <p className="admin-page-subtitle">View, create, update status, or hard delete job postings across all recruiters.</p>
                 </div>
-                <h1 className="admin-page-title">💼 Job Postings Management</h1>
-                <p className="admin-page-subtitle">View, update status, or hard delete job postings across all recruiters.</p>
+                <button
+                    type="button"
+                    onClick={() => setShowCreateJobModal(true)}
+                    className="admin-btn-primary"
+                    style={{ padding: '10px 18px', fontSize: '0.9rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                >
+                    ➕ Post New Job
+                </button>
             </div>
 
             {actionSuccess && (
@@ -261,6 +267,11 @@ const AdminJobsPage = () => {
                     </div>
                 </div>
             )}
+            {/* Create Job Modal with Gemini AI */}
+            <CreateJobModal
+                isOpen={showCreateJobModal}
+                onClose={() => setShowCreateJobModal(false)}
+            />
         </div>
         </div>
     );

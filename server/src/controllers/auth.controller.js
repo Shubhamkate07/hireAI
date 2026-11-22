@@ -37,7 +37,7 @@ const login = async (req,res,next)=>{
         httpOnly: true,
         secure: config.isProd,
         sameSite: "strict",
-        maxAge: 15 * 60 * 1000
+        maxAge: config.jwt.accessMaxAgeMs
       }
     );
 
@@ -48,7 +48,7 @@ const login = async (req,res,next)=>{
         httpOnly: true,
         secure: config.isProd,
         sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        maxAge: config.jwt.refreshMaxAgeMs
       }
     );
 
@@ -82,17 +82,29 @@ const refreshToken = async (req,res,next)=>{
          );
 
 
-         res.cookie(
+      res.cookie(
          "accessToken",
          result.accessToken,
          {
             httpOnly: true,
             secure: config.isProd,
             sameSite: "strict",
-            maxAge:
-              15 * 60 * 1000
+            maxAge: config.jwt.accessMaxAgeMs
          }
       );
+
+      if (result.refreshToken) {
+         res.cookie(
+            "refreshToken",
+            result.refreshToken,
+            {
+               httpOnly: true,
+               secure: config.isProd,
+               sameSite: "strict",
+               maxAge: config.jwt.refreshMaxAgeMs
+            }
+         );
+      }
 
       return res.status(200).json(
          new ApiResponse(
@@ -114,9 +126,15 @@ const logout = async (req,res,next)=>{
       const refreshToken =
          req.cookies.refreshToken;
 
-      await authService.logoutUser(
-         refreshToken
-      );
+      if (refreshToken) {
+         try {
+            await authService.logoutUser(
+               refreshToken
+            );
+         } catch (err) {
+            // Continue to clear cookies even if DB delete fails
+         }
+      }
 
       res.clearCookie(
          "accessToken"
@@ -135,6 +153,14 @@ const logout = async (req,res,next)=>{
       );
 
    }catch(err){
+
+      res.clearCookie(
+         "accessToken"
+      );
+
+      res.clearCookie(
+         "refreshToken"
+      );
 
       next(err);
 

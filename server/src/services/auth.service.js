@@ -9,6 +9,14 @@ const refreshTokenModel  = require('../models/refreshToken.model');
 
 const registerUser = async (name, email, password, role = "candidate") => {
 
+        // ── SECURITY: Never allow self-registration as admin ────────────
+        // Admins are created only via the seed script or by an existing admin
+        // through PATCH /api/admin/users/:id/role.
+        const ALLOWED_SELF_REGISTER_ROLES = ["candidate", "recruiter"];
+        if (!ALLOWED_SELF_REGISTER_ROLES.includes(role)) {
+            role = "candidate";
+        }
+
         const existingUser = await userModel.findUserByEmail(email);
 
         if (existingUser) {
@@ -54,6 +62,15 @@ const loginUser = async (email, password) => {
        "Invalid Credentials"
         )
     }
+
+    // ── SECURITY: Block deactivated users at login ──────────────────
+    if (!user.is_active) {
+        throw new ApiError(
+            403,
+            "Your account has been deactivated. Please contact an administrator."
+        );
+    }
+
     const accessToken = jwt.sign(
         {
             id: user.id,
@@ -85,7 +102,7 @@ const loginUser = async (email, password) => {
   const expiresAt =
     new Date(
       Date.now() +
-      7 * 24 * 60 * 60 * 1000
+      config.jwt.refreshMaxAgeMs
     );
 
   await refreshTokenModel.saveRefreshToken(
@@ -165,6 +182,43 @@ const refreshAccessToken = async (refreshToken) => {
       throw new ApiError(401, "User no longer exists");
    }
 
+   // ── SECURITY: Block deactivated users from refreshing tokens ────
+   if (!user.is_active) {
+      await refreshTokenModel.deleteRefreshToken(tokenHash);
+      throw new ApiError(403, "Your account has been deactivated");
+   }
+
+   // ── Refresh Token Rotation & Expirations Cleanup ─────────────
+   // 1. Delete used refresh token (prevents replay attacks)
+   await refreshTokenModel.deleteRefreshToken(tokenHash);
+
+   // 2. Background cleanup of expired tokens
+   refreshTokenModel.deleteExpiredTokens().catch(() => {});
+
+   // 3. Issue new refresh token
+   const newRefreshToken = jwt.sign(
+      {
+         id: user.id
+      },
+      config.jwt.refreshSecret,
+      {
+         expiresIn: config.jwt.refreshExpiresIn
+      }
+   );
+
+   const newTokenHash = crypto
+      .createHash("sha256")
+      .update(newRefreshToken)
+      .digest("hex");
+
+   const newExpiresAt = new Date(Date.now() + config.jwt.refreshMaxAgeMs);
+
+   await refreshTokenModel.saveRefreshToken(
+      user.id,
+      newTokenHash,
+      newExpiresAt
+   );
+
    const accessToken =
       jwt.sign(
          {
@@ -178,7 +232,8 @@ const refreshAccessToken = async (refreshToken) => {
       );
 
    return {
-      accessToken
+      accessToken,
+      refreshToken: newRefreshToken
    };
 
 };
@@ -186,10 +241,7 @@ const refreshAccessToken = async (refreshToken) => {
 const logoutUser = async (refreshToken)=>{
 
    if(!refreshToken){
-      throw new ApiError(
-         401,
-         "Refresh token required"
-      );
+      return true;
    }
 
    const tokenHash =

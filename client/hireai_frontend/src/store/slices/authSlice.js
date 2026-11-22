@@ -5,6 +5,7 @@ import {
     logoutUser as logoutApi,
     getCurrentUser
 } from '../../services/authService';
+import { queryClient } from '../../queryClient';
 
 const initialState = {
     user: null,
@@ -78,6 +79,9 @@ const authSlice = createSlice({
             state.user = null;
             state.isAuthenticated = false;
             state.loading = false;
+            try {
+                queryClient.clear();
+            } catch (err) {}
         }
     },
 
@@ -134,12 +138,18 @@ const authSlice = createSlice({
                 state.loading = false;
                 state.user = null;
                 state.isAuthenticated = false;
+                try {
+                    queryClient.clear();
+                } catch (err) {}
             })
             .addCase(logoutUser.rejected, (state) => {
-                // Even if server call fails, clear local state
+                // Even if server call fails, clear local state & query cache
                 state.loading = false;
                 state.user = null;
                 state.isAuthenticated = false;
+                try {
+                    queryClient.clear();
+                } catch (err) {}
             });
     }
 });

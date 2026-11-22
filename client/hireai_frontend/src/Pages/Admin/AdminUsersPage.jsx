@@ -25,8 +25,8 @@ const AdminUsersPage = () => {
         isError,
         error,
     } = useInfiniteQuery({
-        queryKey: ['admin', 'users'],
-        queryFn: getAdminUsers,
+        queryKey: ['admin', 'users', searchTerm, roleFilter],
+        queryFn: ({ pageParam = 1 }) => getAdminUsers({ pageParam, search: searchTerm, role: roleFilter }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) =>
             lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
@@ -82,14 +82,8 @@ const AdminUsersPage = () => {
         },
     });
 
-    // Filter users locally for search term and role dropdown
-    const filteredUsers = allUsers.filter((u) => {
-        const matchesSearch =
-            u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-        return matchesSearch && matchesRole;
-    });
+    // Users are filtered server-side across all database records
+    const filteredUsers = allUsers;
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {

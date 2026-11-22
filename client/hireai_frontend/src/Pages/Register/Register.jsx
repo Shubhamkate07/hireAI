@@ -25,6 +25,7 @@ function Register() {
     });
 
     const [errors, setErrors] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -81,6 +82,9 @@ function Register() {
             return;
         }
 
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+
         try {
 
           await dispatch(
@@ -116,6 +120,8 @@ function Register() {
                     message: rejectedValue?.message || "Registration failed. Please try again."
                 });
             }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -221,14 +227,13 @@ function Register() {
                             >
                                 <option value="candidate">Candidate</option>
                                 <option value="recruiter">Recruiter</option>
-                                <option value="admin">Admin</option>
                             </select>
                             <span className="select-arrow" aria-hidden="true">▼</span>
                         </div>
                     </div>
 
-                    <button type="submit" className="btn-primary">
-                        Register
+                    <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                        {isSubmitting ? "Creating account..." : "Register"}
                     </button>
                 </form>
 

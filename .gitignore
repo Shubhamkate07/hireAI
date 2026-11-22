@@ -13,6 +13,7 @@ pnpm-debug.log*
 # ─── Build outputs ────────────────────────────────────────────────────────────
 dist/
 build/
+coverage/
 
 # ─── Logs ─────────────────────────────────────────────────────────────────────
 logs/
@@ -27,3 +28,7 @@ Thumbs.db
 .idea/
 
 hireai_db_backup.sql
+
+
+# Local dev Docker overrides — never deploy to production
+docker-compose.override.yml

@@ -7,10 +7,11 @@ import api from './api';
  */
 
 // ── Users ───────────────────────────────────────────────────────────────────
-export const getAdminUsers = async ({ pageParam = 1 }) => {
-    const response = await api.get('/users', {
-        params: { page: pageParam, limit: 10 },
-    });
+export const getAdminUsers = async ({ pageParam = 1, search = '', role = '' }) => {
+    const params = { page: pageParam, limit: 10 };
+    if (search) params.search = search;
+    if (role && role !== 'all') params.role = role;
+    const response = await api.get('/users', { params });
     return response.data.data;
 };
 
@@ -30,10 +31,11 @@ export const bulkDeactivateUsers = async (userIds) => {
 };
 
 // ── Jobs ────────────────────────────────────────────────────────────────────
-export const getAdminJobs = async ({ pageParam = 1 }) => {
-    const response = await api.get('/jobs', {
-        params: { page: pageParam, limit: 10 },
-    });
+export const getAdminJobs = async ({ pageParam = 1, limit = 10, search = '', status = '' }) => {
+    const params = { page: pageParam, limit };
+    if (search) params.search = search;
+    if (status && status !== 'all') params.status = status;
+    const response = await api.get('/jobs', { params });
     return response.data.data;
 };
 

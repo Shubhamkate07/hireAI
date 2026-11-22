@@ -20,4 +20,12 @@ router.get(
     applicationController.getMyApplications
 );
 
+// ─── GET /api/applications/:id/resume ─────────────────────────────────────────
+// Download/view candidate resume (protected for candidate owner, job recruiter, or admin)
+router.get(
+    '/:id/resume',
+    authMiddleware,
+    applicationController.downloadResume
+);
+
 module.exports = router;

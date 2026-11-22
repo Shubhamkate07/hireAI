@@ -99,10 +99,8 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             await logoutUser();
-
         } catch (error) {
-            console.log(error);
-
+            // Logout failed or already invalidated
         } finally {
             setUser(null);
         }

@@ -40,7 +40,14 @@
  */
 const multer = require('multer');
 const path   = require('path');
+const fs     = require('fs');
 const config = require('../config/env.config');
+
+// Ensure upload directory exists on server startup
+const uploadDir = path.resolve(process.cwd(), 'uploads/resumes');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // ─── 1. Storage: where and how to save ───────────────────────────────────────
 const storage = multer.diskStorage({

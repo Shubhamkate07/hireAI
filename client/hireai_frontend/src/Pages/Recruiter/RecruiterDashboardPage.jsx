@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getRecruiterJobs, getRecruiterAssessments } from '../../services/recruiterService';
 import api from '../../services/api';
 import { logoutUser } from '../../store/slices/authSlice';
+import CreateJobModal from '../../Components/CreateJobModal';
 import './RecruiterDashboardPage.css';
 
 /**
@@ -19,6 +20,7 @@ const RecruiterDashboardPage = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const user = useSelector((state) => state.auth.user);
+    const [showCreateJobModal, setShowCreateJobModal] = useState(false);
 
     // Fetch recruiter's jobs with application count
     const {
@@ -68,7 +70,15 @@ const RecruiterDashboardPage = () => {
                         <h1>Recruiter Dashboard</h1>
                         <p>Manage your posted jobs and candidate application pipelines</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowCreateJobModal(true)}
+                            className="primary-btn"
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            ➕ Post New Job
+                        </button>
                         <Link to="/recruiter/assessments/new" className="primary-btn" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                             📝 + Create Assessment
                         </Link>
@@ -236,6 +246,13 @@ const RecruiterDashboardPage = () => {
                     )}
                 </section>
             </main>
+
+            {/* Post Job Modal with Gemini AI Generator */}
+            <CreateJobModal
+                isOpen={showCreateJobModal}
+                onClose={() => setShowCreateJobModal(false)}
+                defaultCompany={user?.company || ''}
+            />
         </div>
     );
 };

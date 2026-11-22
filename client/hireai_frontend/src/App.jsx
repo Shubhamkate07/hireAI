@@ -51,7 +51,6 @@ const Register              = lazy(() => import('./Pages/Register/Register'))
 const Dashboard             = lazy(() => import('./Pages/Dashboard/Dashboard'))
 const Profile               = lazy(() => import('./Pages/Profile/Profile'))
 const NotFound              = lazy(() => import('./Pages/NotFound/NotFound'))
-const PracticePage          = lazy(() => import('./Pages/Practice/PracticePage'))
 const JobsListPage          = lazy(() => import('./Pages/JobsListPage/JobsListPage'))
 const JobDetailPage         = lazy(() => import('./Pages/JobDetailPage/JobDetailPage'))
 const AssessmentPage        = lazy(() => import('./Pages/Assessment/AssessmentPage'))
@@ -94,9 +93,6 @@ const App = () => {
             <Route path="/login"    element={routeEl(Login)} />
             <Route path="/register" element={routeEl(Register)} />
           </Route>
-
-          {/* Practice exercises */}
-          <Route path="/practice" element={routeEl(PracticePage)} />
 
           {/* ── Standard Protected Routes ─────────────────────────────── */}
           <Route element={<ProtectedRoute />}>

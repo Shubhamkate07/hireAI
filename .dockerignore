@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+.git
+.gitignore
+*.log
+dist
+build
+coverage
+uploads/
+uploads/resumes/
+*.pdf
+*.doc
+*.docx

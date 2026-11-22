@@ -26,10 +26,12 @@
 import { useState, useTransition } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { getJobs } from '../../services/jobService'
 import useDebounce from '../../hooks/useDebounce'
 import JobCard from '../../Components/JobCard'
 import BackButton from '../../Components/BackButton'
+import CreateJobModal from '../../Components/CreateJobModal'
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 const SkeletonCard = () => (
@@ -67,8 +69,8 @@ const sk = {
 }
 
 // ─── Filter options ────────────────────────────────────────────────────────────
-const STATUS_OPTIONS  = ['', 'open', 'closed', 'paused']
-const JOB_TYPE_OPTIONS = ['', 'remote', 'onsite', 'hybrid', 'contract', 'internship']
+const STATUS_OPTIONS  = ['', 'open', 'closed']
+const JOB_TYPE_OPTIONS = ['', 'full-time', 'part-time', 'contract', 'internship']
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const JobsListPage = () => {
@@ -89,6 +91,8 @@ const JobsListPage = () => {
   //                    doesn't fire a network request on every single character.
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
+  const user = useSelector((state) => state.auth?.user)
+  const [showCreateJobModal, setShowCreateJobModal] = useState(false)
 
   // ── Build params — only debouncedSearch enters the queryKey ───────────────
   const queryParams = {
@@ -193,9 +197,9 @@ const JobsListPage = () => {
           display: block;
         }
         .job-link:hover > article {
-          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+          box-shadow: 0 8px 30px rgba(99, 102, 241, 0.18);
           transform: translateY(-2px);
-          border-color: #c7d2fe;
+          border-color: rgba(99, 102, 241, 0.45);
         }
       `}</style>
 
@@ -212,20 +216,38 @@ const JobsListPage = () => {
           </p>
         </div>
 
-      {/* ── Background-fetch indicator / Transition pending indicator ────────
-          Two separate signals:
-          • isPending: useTransition is still computing the filter state update
-            (browser is busy but NOT yet fetching — the UI update is deferred)
-          • isFetching && !isLoading: React Query is refetching in the background
-            (network request in flight after the transition completed)
-          We show one or the other, prioritising isPending.
-      ── */}
-      {(isPending || (isFetching && !isLoading)) && (
-        <div style={styles.fetchingBadge}>
-          <div style={styles.fetchingDot} />
-          {isPending ? 'Filtering…' : 'Updating…'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {(user?.role === 'recruiter' || user?.role === 'admin') && (
+            <button
+              type="button"
+              onClick={() => setShowCreateJobModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)',
+              }}
+            >
+              ➕ Post a Job
+            </button>
+          )}
+
+          {/* ── Background-fetch indicator / Transition pending indicator ──────── */}
+          {(isPending || (isFetching && !isLoading)) && (
+            <div style={styles.fetchingBadge}>
+              <div style={styles.fetchingDot} />
+              {isPending ? 'Filtering…' : 'Updating…'}
+            </div>
+          )}
         </div>
-      )}
       </div>
 
       {/* ── Filter + Search Bar ───────────────────────────────────────────────
@@ -337,8 +359,8 @@ const JobsListPage = () => {
             // "No jobs found matching your filters" + "Clear filters" → finished product.
             <div style={styles.emptyState}>
               <div style={styles.emptyIcon}>🔍</div>
-              <h3 style={{ color: '#1e293b', margin: '0 0 8px' }}>No jobs found</h3>
-              <p style={{ color: '#64748b', margin: '0 0 1.25rem' }}>
+              <h3 style={{ color: '#f8fafc', margin: '0 0 8px' }}>No jobs found</h3>
+              <p style={{ color: '#94a3b8', margin: '0 0 1.25rem' }}>
                 {search && (filters.status || filters.job_type)
                   ? `No "${search}" jobs match your selected filters.`
                   : search
@@ -396,6 +418,13 @@ const JobsListPage = () => {
           )}
         </>
       )}
+
+      {/* Create Job Modal with Gemini AI Generator */}
+      <CreateJobModal
+        isOpen={showCreateJobModal}
+        onClose={() => setShowCreateJobModal(false)}
+        defaultCompany={user?.company || ''}
+      />
     </div>
   )
 }
@@ -448,26 +477,27 @@ const styles = {
     flexWrap: 'wrap',
     gap: '1rem',
     alignItems: 'flex-end',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '1rem 1.25rem',
-    marginBottom: '1.5rem',
+    background: '#111520',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '14px',
+    padding: '1.25rem 1.5rem',
+    marginBottom: '1.75rem',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
   },
   filterGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '6px',
   },
   filterLabel: {
     fontSize: '0.75rem',
     fontWeight: 600,
-    color: '#475569',
+    color: '#94a3b8',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
   },
   typingHint: {
-    color: '#6366f1',
+    color: '#818cf8',
     fontWeight: 500,
     textTransform: 'none',
     letterSpacing: 0,
@@ -479,41 +509,43 @@ const styles = {
   },
   searchIcon: {
     position: 'absolute',
-    left: '10px',
-    fontSize: '0.85rem',
+    left: '12px',
+    fontSize: '0.9rem',
     pointerEvents: 'none',
+    opacity: 0.7,
   },
   searchInput: {
-    padding: '0.5rem 0.8rem 0.5rem 2rem',
+    padding: '0.6rem 0.9rem 0.6rem 2.3rem',
     borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    background: '#fff',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    background: 'rgba(255, 255, 255, 0.04)',
     fontSize: '0.875rem',
-    color: '#1e293b',
+    color: '#f8fafc',
     width: '100%',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   },
   select: {
-    padding: '0.5rem 0.8rem',
+    padding: '0.6rem 0.9rem',
     borderRadius: '8px',
-    border: '1px solid #cbd5e1',
-    background: '#fff',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    background: '#0a0d14',
     fontSize: '0.875rem',
-    color: '#1e293b',
+    color: '#f8fafc',
     outline: 'none',
     cursor: 'pointer',
     minWidth: '150px',
   },
   clearBtn: {
     alignSelf: 'flex-end',
-    padding: '0.5rem 0.9rem',
+    padding: '0.6rem 1.1rem',
     borderRadius: '8px',
-    border: '1px solid #fecaca',
-    background: '#fff',
-    color: '#dc2626',
-    fontSize: '0.8rem',
+    border: '1px solid rgba(239, 68, 68, 0.35)',
+    background: 'rgba(239, 68, 68, 0.08)',
+    color: '#f87171',
+    fontSize: '0.82rem',
     fontWeight: 600,
     cursor: 'pointer',
+    transition: 'all 0.15s ease',
   },
   jobList: {
     display: 'flex',
@@ -525,8 +557,8 @@ const styles = {
     display: 'flex',
     gap: '1rem',
     alignItems: 'flex-start',
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
+    background: 'rgba(239, 68, 68, 0.08)',
+    border: '1px solid rgba(239, 68, 68, 0.25)',
     borderRadius: '14px',
     padding: '1.5rem',
   },
@@ -534,17 +566,17 @@ const styles = {
   emptyState: {
     textAlign: 'center',
     padding: '4rem 2rem',
-    background: '#f8fafc',
+    background: '#111520',
     borderRadius: '14px',
-    border: '1px dashed #cbd5e1',
+    border: '1px dashed rgba(255, 255, 255, 0.12)',
   },
   emptyIcon: { fontSize: '2.5rem', marginBottom: '0.75rem' },
   emptyActionBtn: {
-    padding: '0.55rem 1.4rem',
+    padding: '0.6rem 1.5rem',
     borderRadius: '8px',
     border: '1px solid #6366f1',
-    background: '#fff',
-    color: '#6366f1',
+    background: 'rgba(99, 102, 241, 0.1)',
+    color: '#818cf8',
     fontSize: '0.875rem',
     fontWeight: 600,
     cursor: 'pointer',
@@ -558,22 +590,22 @@ const styles = {
     marginTop: '0.5rem',
   },
   pageButton: {
-    padding: '0.6rem 1.25rem',
+    padding: '0.65rem 1.4rem',
     borderRadius: '8px',
     border: '1px solid #6366f1',
-    background: '#fff',
-    color: '#6366f1',
+    background: 'rgba(99, 102, 241, 0.1)',
+    color: '#818cf8',
     fontWeight: 600,
     fontSize: '0.875rem',
     cursor: 'pointer',
-    transition: 'background 0.2s, color 0.2s',
+    transition: 'all 0.2s ease',
   },
   pageButtonDisabled: {
-    padding: '0.6rem 1.25rem',
+    padding: '0.65rem 1.4rem',
     borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-    background: '#f8fafc',
-    color: '#cbd5e1',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    background: 'rgba(255, 255, 255, 0.02)',
+    color: '#475569',
     fontWeight: 600,
     fontSize: '0.875rem',
     cursor: 'not-allowed',

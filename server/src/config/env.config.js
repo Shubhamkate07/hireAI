@@ -27,6 +27,22 @@
  * ============================================================
  */
 
+const parseDurationMs = (duration, fallbackMs) => {
+    if (!duration) return fallbackMs;
+    if (typeof duration === 'number') return duration;
+    const match = String(duration).trim().match(/^(\d+)([smhd])$/i);
+    if (!match) return fallbackMs;
+    const value = parseInt(match[1], 10);
+    const unit = match[2].toLowerCase();
+    switch (unit) {
+        case 's': return value * 1000;
+        case 'm': return value * 60 * 1000;
+        case 'h': return value * 60 * 60 * 1000;
+        case 'd': return value * 24 * 60 * 60 * 1000;
+        default: return fallbackMs;
+    }
+};
+
 const config = {
     // ── Runtime environment ────────────────────────────────────────────────────
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -60,8 +76,10 @@ const config = {
     jwt: {
         secret:            process.env.JWT_SECRET,
         expiresIn:         process.env.JWT_EXPIRES_IN     || '15m',
+        accessMaxAgeMs:    parseDurationMs(process.env.JWT_EXPIRES_IN, 15 * 60 * 1000),
         refreshSecret:     process.env.REFRESH_TOKEN_SECRET,
         refreshExpiresIn:  process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+        refreshMaxAgeMs:   parseDurationMs(process.env.REFRESH_TOKEN_EXPIRES_IN, 7 * 24 * 60 * 60 * 1000),
     },
 
     // ── Redis ─────────────────────────────────────────────────────────────────

@@ -147,7 +147,7 @@ const createQuestion = async (assessmentId, questionText, questionType, options,
             questionType ?? 'mcq',
             JSON.stringify(options ?? []),
             correctAnswer,
-            points ?? 10,
+            points !== undefined && points !== null && !isNaN(Number(points)) ? Math.max(0, Number(points)) : 10,
         ]
     );
 
@@ -204,7 +204,7 @@ const createAttempt = async (assessmentId, candidateId, score, submittedAnswers)
 const findAttemptByCandidate = async (assessmentId, candidateId) => {
 
     const [rows] = await pool.query(
-        `SELECT id, score, submitted_at
+        `SELECT id, score, submitted_at, started_at
          FROM assessment_attempts
          WHERE assessment_id = ? AND candidate_id = ?`,
         [assessmentId, candidateId]
@@ -276,10 +276,170 @@ const deleteQuestionsByAssessmentId = async (assessmentId) => {
 };
 
 
+// ─── startAttempt ─────────────────────────────────────────────────────────────
+// Creates a "started" attempt row (score=0, submitted_at=NULL, started_at=NOW()).
+// This records exactly when the candidate began. The service uses this timestamp
+// to enforce the time limit server-side when the candidate submits.
+const startAttempt = async (assessmentId, candidateId) => {
+    try {
+        const [result] = await pool.query(
+            `INSERT INTO assessment_attempts
+                (assessment_id, candidate_id, score, submitted_answers, started_at, submitted_at)
+             VALUES (?, ?, 0, NULL, NOW(), NULL)`,
+            [assessmentId, candidateId]
+        );
+
+        // Return the created row so the service can send started_at to the client
+        const [rows] = await pool.query(
+            `SELECT id, started_at FROM assessment_attempts WHERE id = ?`,
+            [result.insertId]
+        );
+
+        return rows[0];
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
+            const [rows] = await pool.query(
+                `SELECT id, score, submitted_at, started_at
+                 FROM assessment_attempts
+                 WHERE assessment_id = ? AND candidate_id = ?`,
+                [assessmentId, candidateId]
+            );
+            return rows[0];
+        }
+        throw err;
+    }
+};
+
+
+// ─── updateAttemptWithScore ──────────────────────────────────────────────────
+// Called when the candidate submits: fills in score, submitted_answers, and
+// sets submitted_at = NOW(). Only updates the existing "started" row.
+const updateAttemptWithScore = async (attemptId, score, submittedAnswers) => {
+
+    await pool.query(
+        `UPDATE assessment_attempts
+         SET score = ?, submitted_answers = ?, submitted_at = NOW()
+         WHERE id = ?`,
+        [score, JSON.stringify(submittedAnswers), attemptId]
+    );
+};
+
+
+// ─── createAssessmentWithQuestions (Transactional) ──────────────────────────
+const createAssessmentWithQuestions = async (title, description, jobId, timeLimitMinutes, createdBy, questions = []) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [aResult] = await connection.query(
+            `INSERT INTO assessments (title, description, job_id, time_limit_minutes, created_by)
+             VALUES (?, ?, ?, ?, ?)`,
+            [title, description, jobId ?? null, timeLimitMinutes ?? 30, createdBy]
+        );
+        const assessmentId = aResult.insertId;
+
+        for (const q of questions) {
+            await connection.query(
+                `INSERT INTO questions
+                    (assessment_id, question_text, question_type, options, correct_answer, points)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    assessmentId,
+                    q.question_text,
+                    q.question_type ?? 'mcq',
+                    JSON.stringify(q.options ?? []),
+                    q.correct_answer,
+                    q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
+                ]
+            );
+        }
+
+        await connection.commit();
+        return assessmentId;
+    } catch (err) {
+        await connection.rollback();
+        throw err;
+    } finally {
+        connection.release();
+    }
+};
+
+// ─── updateAssessmentWithQuestions (Transactional & Question-Safe) ───────────
+const updateAssessmentWithQuestions = async (assessmentId, title, description, jobId, timeLimitMinutes, createdBy, questions) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        await connection.query(
+            `UPDATE assessments
+             SET title = ?, description = ?, job_id = ?, time_limit_minutes = ?
+             WHERE id = ? AND created_by = ?`,
+            [title, description, jobId ?? null, timeLimitMinutes ?? 30, assessmentId, createdBy]
+        );
+
+        // Crucial fix: Only overwrite questions if questions are explicitly provided and non-empty.
+        // Partial updates (e.g. updating title/timer without questions) will NEVER wipe existing questions.
+        if (Array.isArray(questions) && questions.length > 0) {
+            await connection.query(`DELETE FROM questions WHERE assessment_id = ?`, [assessmentId]);
+
+            for (const q of questions) {
+                await connection.query(
+                    `INSERT INTO questions
+                        (assessment_id, question_text, question_type, options, correct_answer, points)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [
+                        assessmentId,
+                        q.question_text,
+                        q.question_type ?? 'mcq',
+                        JSON.stringify(q.options ?? []),
+                        q.correct_answer,
+                        q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
+                    ]
+                );
+            }
+        }
+
+        await connection.commit();
+    } catch (err) {
+        await connection.rollback();
+        throw err;
+    } finally {
+        connection.release();
+    }
+};
+
+// ─── hasCandidateAppliedForJob ───────────────────────────────────────────────
+const hasCandidateAppliedForJob = async (jobId, candidateId) => {
+    const [rows] = await pool.query(
+        `SELECT id FROM applications WHERE job_id = ? AND candidate_id = ? LIMIT 1`,
+        [jobId, candidateId]
+    );
+    return rows.length > 0;
+};
+
+// ─── ensureCandidateApplication ───────────────────────────────────────────────
+const ensureCandidateApplication = async (jobId, candidateId) => {
+    if (!jobId || !candidateId) return;
+    try {
+        await pool.query(
+            `INSERT INTO applications (job_id, candidate_id, status)
+             VALUES (?, ?, 'applied')
+             ON DUPLICATE KEY UPDATE id=id`,
+            [jobId, candidateId]
+        );
+    } catch {
+        // ignore duplicate or non-fatal errors
+    }
+};
+
 module.exports = {
     // assessments
     createAssessment,
+    createAssessmentWithQuestions,
     updateAssessment,
+    updateAssessmentWithQuestions,
+    hasCandidateAppliedForJob,
+    ensureCandidateApplication,
     deleteQuestionsByAssessmentId,
     findAssessmentById,
     findAssessmentByJobId,
@@ -291,4 +451,6 @@ module.exports = {
     // attempts
     createAttempt,
     findAttemptByCandidate,
+    startAttempt,
+    updateAttemptWithScore,
 };

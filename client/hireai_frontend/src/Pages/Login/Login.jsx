@@ -22,6 +22,7 @@ const dispatch = useDispatch();
 
     const [errors, setErrors] = useState({});
     const [apiError, setApiError] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
 
     const handleChange = (e) => {
@@ -59,40 +60,45 @@ const dispatch = useDispatch();
             return;
         }
 
-try {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
 
-   await dispatch(
-    loginUser({
-        email: formData.email,
-        password: formData.password
-    })
-).unwrap();
+        try {
 
-    navigate("/dashboard");
+           await dispatch(
+            loginUser({
+                email: formData.email,
+                password: formData.password
+            })
+        ).unwrap();
 
-} catch (rejectedValue) {
+            navigate("/dashboard");
 
-    // rejectedValue is the payload passed to rejectWithValue() in the thunk
-    if (rejectedValue?.errors?.length > 0) {
+        } catch (rejectedValue) {
 
-        // Server returned structured field-level errors
-        // Convert the array to { field: message } object
-        const serverErrors = {};
+            // rejectedValue is the payload passed to rejectWithValue() in the thunk
+            if (rejectedValue?.errors?.length > 0) {
 
-        rejectedValue.errors.forEach(({ field, message }) => {
-            serverErrors[field] = message;
-        });
+                // Server returned structured field-level errors
+                // Convert the array to { field: message } object
+                const serverErrors = {};
 
-        setApiError(serverErrors);
+                rejectedValue.errors.forEach(({ field, message }) => {
+                    serverErrors[field] = message;
+                });
 
-    } else {
+                setApiError(serverErrors);
 
-        // Generic error (invalid credentials, 500, network, etc.)
-        setApiError({
-            message: rejectedValue?.message || "Login failed"
-        });
-    }
-}
+            } else {
+
+                // Generic error (invalid credentials, 500, network, etc.)
+                setApiError({
+                    message: rejectedValue?.message || "Login failed"
+                });
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -151,8 +157,8 @@ try {
                         <p className="field-error">{errors.password || apiError.password}</p>
                     </div>
 
-                    <button type="submit" className="btn-primary">
-                        Login
+                    <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                        {isSubmitting ? "Logging in..." : "Login"}
                     </button>
                 </form>
 

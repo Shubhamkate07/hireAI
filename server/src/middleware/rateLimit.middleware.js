@@ -19,10 +19,9 @@
 const rateLimit = require('express-rate-limit');
 
 // Helper: extract true client IP from reverse proxies (AWS ALB / Nginx)
-const getClientIp = (req) => {
-    const forwarded = req.headers['x-forwarded-for'];
-    return forwarded ? String(forwarded).split(',')[0].trim() : req.ip || '127.0.0.1';
-};
+// With `trust proxy` in app.js and nginx overwriting X-Forwarded-For to $remote_addr,
+// req.ip reliably contains the authentic client IP and cannot be spoofed.
+const getClientIp = (req) => req.ip;
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes

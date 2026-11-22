@@ -46,11 +46,13 @@
  * ============================================================
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import BackButton from '../../Components/BackButton';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAssessment, submitAssessment } from '../../services/assessmentService';
+import { getAssessmentFeedbackAI } from '../../services/aiService';
 import './AssessmentPage.css';
 
 
@@ -60,8 +62,9 @@ import './AssessmentPage.css';
 
 // Formats seconds into "MM:SS" string for the timer display
 const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
+    const safeSeconds = Math.max(0, Math.floor(seconds || 0));
+    const m = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
+    const s = (safeSeconds % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
 };
 
@@ -71,38 +74,151 @@ const formatTime = (seconds) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const AssessmentPage = () => {
 
-    // ── Route Params ──────────────────────────────────────────────────────────
-    // URL: /assessments/:assessmentId
-    // This matches the backend resource key: GET /api/assessments/:id
+    // ── Route Params & Navigation ─────────────────────────────────────────────
     const { assessmentId } = useParams();
-
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const user = useSelector((state) => state.auth?.user);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // INTERVIEW Q1 ANSWER — State model for answers
-    //
-    // We use a SINGLE OBJECT keyed by question ID:
-    //   { 1: "useEffect", 2: "When the effect re-runs" }
-    //
-    // Not an array, because:
-    //   • O(1) read/write: answers[1] = "useEffect"
-    //   • The value stored is the full option TEXT string — exactly what the
-    //     backend compares against correct_answer. No transformation needed.
-    //   • Easy to check if a question is answered: answers[question.id] !== undefined
+    // State model for answers & quiz navigation
     // ─────────────────────────────────────────────────────────────────────────
-    const [answers, setAnswers] = useState({});          // { questionId: optionText }
+    const [answers, setAnswers] = useState(() => {
+        try {
+            const saved = localStorage.getItem(`hireai_assessment_answers_${assessmentId}`);
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    });
 
-    const [currentIndex, setCurrentIndex] = useState(0); // which question we're viewing
-    const [timeLeft, setTimeLeft]         = useState(null); // seconds remaining
-    const [submitted, setSubmitted]       = useState(false); // did the user submit?
+    const [currentIndex, setCurrentIndex] = useState(() => {
+        try {
+            const saved = sessionStorage.getItem(`hireai_assessment_index_${assessmentId}`);
+            return saved !== null ? Number(saved) : 0;
+        } catch {
+            return 0;
+        }
+    });
+
+    const [timeLeft, setTimeLeft]   = useState(null); // seconds remaining
+    const [submitted, setSubmitted] = useState(false); // did the user submit?
+    const autoSubmittedRef          = useRef(false); // prevents infinite auto-submit loops
+
+    // AI Feedback state for completed tests
+    const [aiFeedback, setAiFeedback] = useState(null);
+    const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
+
+    const handleFetchAiFeedback = async () => {
+        try {
+            setIsFeedbackLoading(true);
+            const feedback = await getAssessmentFeedbackAI(assessmentId);
+            if (feedback) setAiFeedback(feedback);
+        } catch (err) {
+            alert(err.response?.data?.message || 'Could not generate AI feedback at this time.');
+        } finally {
+            setIsFeedbackLoading(false);
+        }
+    };
+
+    const renderAiFeedbackSection = () => {
+        if (aiFeedback) {
+            return (
+                <div style={{
+                    marginTop: '28px',
+                    textAlign: 'left',
+                    padding: '24px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.09)',
+                    borderRadius: '16px',
+                    width: '100%',
+                    maxWidth: '680px',
+                    margin: '28px auto 0',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
+                    backdropFilter: 'blur(8px)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>✨</span>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
+                            Gemini AI Performance Analysis & Study Plan
+                        </h3>
+                    </div>
+
+                    <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.6, margin: '0 0 16px' }}>
+                        {aiFeedback.summary}
+                    </p>
+
+                    {aiFeedback.strengths?.length > 0 && (
+                        <div style={{ marginBottom: '14px', background: 'rgba(34, 197, 94, 0.06)', border: '1px solid rgba(34, 197, 94, 0.2)', borderRadius: '10px', padding: '12px 16px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Demonstrated Strengths
+                            </span>
+                            <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                                {aiFeedback.strengths.map((str, idx) => (
+                                    <li key={idx} style={{ marginBottom: '4px' }}>{str}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {aiFeedback.areasForImprovement?.length > 0 && (
+                        <div style={{ marginBottom: '14px', background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '10px', padding: '12px 16px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Key Areas for Improvement
+                            </span>
+                            <ul style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                                {aiFeedback.areasForImprovement.map((area, idx) => (
+                                    <li key={idx} style={{ marginBottom: '4px' }}>{area}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {aiFeedback.studyPlan?.length > 0 && (
+                        <div style={{ marginTop: '14px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: '10px', padding: '12px 16px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Actionable 3-Point Study Plan
+                            </span>
+                            <ol style={{ margin: '8px 0 0', paddingLeft: '20px', fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.6 }}>
+                                {aiFeedback.studyPlan.map((step, idx) => (
+                                    <li key={idx} style={{ marginBottom: '4px' }}>{step}</li>
+                                ))}
+                            </ol>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        return (
+            <button
+                type="button"
+                disabled={isFeedbackLoading}
+                onClick={handleFetchAiFeedback}
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 20px',
+                    marginTop: '20px',
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    cursor: isFeedbackLoading ? 'wait' : 'pointer',
+                    opacity: isFeedbackLoading ? 0.7 : 1,
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
+                }}
+            >
+                {isFeedbackLoading ? '⏳ Analyzing Assessment Results...' : '✨ Get AI Feedback & Study Plan'}
+            </button>
+        );
+    };
 
 
-    // ── Fetch Assessment ──────────────────────────────────────────────────────────
-    // useQuery manages: loading, error, caching, and background refetch.
-    // queryKey: ['assessment', assessmentId] — cache is keyed by the assessment ID.
-    //   If the user navigates to a different assessment, React Query fetches fresh data.
-    // queryFn:  calls assessmentService.getAssessment(assessmentId)
-    //   → GET /api/assessments/:id
-    //   → backend strips correct_answer for candidate role before responding
+    // ── Fetch Assessment ──────────────────────────────────────────────────────
     const {
         data: assessment,
         isLoading,
@@ -114,60 +230,7 @@ const AssessmentPage = () => {
     });
 
 
-    // ── Initialise Timer When Data Arrives ────────────────────────────────────
-    // assessment.time_limit_minutes → convert to seconds for the countdown.
-    useEffect(() => {
-        if (assessment && timeLeft === null) {
-            setTimeLeft(assessment.time_limit_minutes * 60);
-        }
-    }, [assessment, timeLeft]);
-
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // INTERVIEW Q2 ANSWER — Timer with cleanup function
-    //
-    // setInterval returns an ID (a number). Without clearInterval(id), the
-    // interval keeps firing even after the component unmounts (e.g., user
-    // navigates away). This causes:
-    //   1. A memory leak — the interval stays alive forever.
-    //   2. A React warning — state update on unmounted component.
-    //
-    // The cleanup function (the function returned from useEffect) is called
-    // by React when:
-    //   • The component unmounts
-    //   • The dependencies change (which re-runs the effect)
-    //
-    // clearInterval(id) is the cleanup — it tells the browser: "stop that interval."
-    // ─────────────────────────────────────────────────────────────────────────
-    useEffect(() => {
-
-        // Don't start a timer if there's nothing to count down, or already submitted
-        if (timeLeft === null || submitted) return;
-
-        // Timer ran out — auto-submit
-        if (timeLeft === 0) {
-            // We only auto-submit if user hasn't already clicked "Submit"
-            if (!submitted) {
-                handleSubmit();
-            }
-            return;
-        }
-
-        // Start the interval — fires every 1000ms (1 second)
-        const intervalId = setInterval(() => {
-            setTimeLeft(prev => prev - 1);
-        }, 1000);
-
-        // CLEANUP FUNCTION — React calls this when the component unmounts
-        // or before the effect runs again. This prevents the memory leak.
-        return () => clearInterval(intervalId);
-
-    }, [timeLeft, submitted]); // re-runs whenever timeLeft or submitted changes
-
-
     // ── Submit Mutation ───────────────────────────────────────────────────────
-    // useMutation is for operations that change data (POST/PATCH/DELETE).
-    // Unlike useQuery, it doesn't run automatically — we call mutate() manually.
     const {
         mutate: submitMutation,
         isPending: isSubmitting,
@@ -176,8 +239,6 @@ const AssessmentPage = () => {
         isError: isSubmitError,
         error: submitError,
     } = useMutation({
-        // Build submittedAnswers array: [ { questionId, answer }, ... ]
-        // This is what the backend expects — NOT a score, NOT an object keyed by id.
         mutationFn: () => {
             const submittedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
                 questionId: Number(questionId),
@@ -187,54 +248,142 @@ const AssessmentPage = () => {
         },
         onSuccess: () => {
             setSubmitted(true);
+            autoSubmittedRef.current = true;
+            try {
+                localStorage.removeItem(`hireai_assessment_answers_${assessmentId}`);
+                sessionStorage.removeItem(`hireai_assessment_index_${assessmentId}`);
+            } catch {}
+            queryClient.invalidateQueries({ queryKey: ['assessment', assessmentId] });
+        },
+        onError: (err) => {
+            // Guard: Halt re-submission attempts on failure so client never loops infinitely
+            autoSubmittedRef.current = true;
+            setSubmitted(true);
+            if (err?.response?.status === 409) {
+                queryClient.invalidateQueries({ queryKey: ['assessment', assessmentId] });
+            }
         }
     });
 
-    // Wrapper so we can call it both from the button AND from the timer
+    // ── Handlers ──────────────────────────────────────────────────────────────
     const handleSubmit = () => {
-        if (!isSubmitting && !submitted) {
+        if (!isSubmitting && !submitted && !autoSubmittedRef.current) {
             submitMutation();
         }
     };
 
-
-    // ── Answer Selection Handler ──────────────────────────────────────────────
-    // When user clicks an option, we update the answers object.
-    // We spread the old answers and set the new key-value pair.
     const handleSelectAnswer = (questionId, optionKey) => {
-        setAnswers(prev => ({
-            ...prev,
-            [questionId]: optionKey  // e.g. { "10": "b" }
-        }));
+        setAnswers(prev => {
+            const nextAnswers = {
+                ...prev,
+                [questionId]: optionKey
+            };
+            try {
+                localStorage.setItem(`hireai_assessment_answers_${assessmentId}`, JSON.stringify(nextAnswers));
+            } catch {}
+            return nextAnswers;
+        });
     };
 
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // INTERVIEW Q5 ANSWER — Derived value: canSubmit
-    //
-    // canSubmit is NOT stored in useState — it is derived (calculated) from
-    // the `answers` state on every render.
-    //
-    // If we stored it in state: we'd have to remember to update it every time
-    // `answers` changes — two pieces of state to keep in sync = bug waiting to happen.
-    //
-    // Instead: we compute it here. React re-renders whenever state changes,
-    // so canSubmit is always fresh and always correct.
-    // ─────────────────────────────────────────────────────────────────────────
-    const totalQuestions = assessment?.questions?.length ?? 0;
-    const answeredCount  = Object.keys(answers).length;
-    const canSubmit      = answeredCount === totalQuestions && totalQuestions > 0;
-    //          ↑ derived value — computed from `answers` state, never stored separately
-
-
-    // ── Exit (exam mode has no navbar) ───────────────────────────────────────
-    const navigate = useNavigate();
     const handleExit = () => {
-        const hasProgress = Object.keys(answers).length > 0;
-        if (hasProgress && !window.confirm('Leave this assessment? Your unsubmitted answers will be lost.')) return;
+        // Assessment is still running on server: persist answers so candidate can resume seamlessly!
+        if (!submitted && !isSuccess && !assessment?.already_submitted) {
+            try {
+                localStorage.setItem(`hireai_assessment_answers_${assessmentId}`, JSON.stringify(answers));
+            } catch {}
+        }
+        queryClient.invalidateQueries({ queryKey: ['job-assessment'] });
+        queryClient.invalidateQueries({ queryKey: ['assessment', assessmentId] });
         if (window.history.state?.idx > 0) navigate(-1);
         else navigate('/jobs');
     };
+
+
+    // ── Initialise Timer When Assessment Arrives ──────────────────────────────
+    useEffect(() => {
+        if (assessment && timeLeft === null) {
+            if (assessment.already_submitted) {
+                setSubmitted(true);
+                autoSubmittedRef.current = true;
+                setTimeLeft(0);
+                return;
+            }
+            const serverSeconds = typeof assessment.remaining_seconds === 'number'
+                ? assessment.remaining_seconds
+                : ((assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0 ? Number(assessment.time_limit_minutes) : 30) * 60);
+            setTimeLeft(Math.max(0, serverSeconds));
+        }
+    }, [assessment, timeLeft]);
+
+    // ── Persist Answers & Current Index ───────────────────────────────────────
+    useEffect(() => {
+        if (assessmentId && !submitted && !isSuccess) {
+            try {
+                localStorage.setItem(`hireai_assessment_answers_${assessmentId}`, JSON.stringify(answers));
+            } catch {}
+        }
+    }, [answers, assessmentId, submitted, isSuccess]);
+
+    useEffect(() => {
+        if (assessmentId) {
+            try {
+                sessionStorage.setItem(`hireai_assessment_index_${assessmentId}`, String(currentIndex));
+            } catch {}
+        }
+    }, [currentIndex, assessmentId]);
+
+    useEffect(() => {
+        if (submitted || isSuccess || assessment?.already_submitted) {
+            try {
+                localStorage.removeItem(`hireai_assessment_answers_${assessmentId}`);
+                sessionStorage.removeItem(`hireai_assessment_index_${assessmentId}`);
+            } catch {}
+        }
+    }, [submitted, isSuccess, assessment?.already_submitted, assessmentId]);
+
+    // ── Timer Countdown Effect ────────────────────────────────────────────────
+    useEffect(() => {
+        if (timeLeft === null || submitted || isSuccess || autoSubmittedRef.current) return;
+
+        if (timeLeft <= 0) {
+            if (!autoSubmittedRef.current && !submitted && !isSubmitting) {
+                autoSubmittedRef.current = true;
+                setSubmitted(true);
+                submitMutation();
+            }
+            return;
+        }
+
+        const intervalId = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev === null) return null;
+                if (prev <= 1) {
+                    clearInterval(intervalId);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(intervalId);
+    }, [timeLeft, submitted, isSuccess, isSubmitting]);
+
+    // ── Warn before leaving or refreshing ─────────────────────────────────────
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (Object.keys(answers).length > 0 && !submitted && !isSuccess) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [answers, submitted, isSuccess]);
+
+    // ── Derived values ────────────────────────────────────────────────────────
+    const totalQuestions = assessment?.questions?.length ?? 0;
+    const answeredCount  = Object.keys(answers).length;
+    const canSubmit      = totalQuestions > 0;
 
 
     // ── Render: Loading ───────────────────────────────────────────────────────
@@ -251,14 +400,167 @@ const AssessmentPage = () => {
 
     // ── Render: Error ─────────────────────────────────────────────────────────
     if (isError) {
+        const errorMsg = error?.response?.data?.message || error?.message || 'An unexpected error occurred';
         return (
             <div className="ap-page">
                 <div className="ap-card ap-error">
                     <span className="ap-error-icon">⚠️</span>
                     <h2>Could not load assessment</h2>
-                    <p>{error?.message ?? 'An unexpected error occurred'}</p>
+                    <p>{errorMsg}</p>
                     <div style={{ marginTop: '1.25rem' }}>
                         <BackButton label="Go Back" fallback="/jobs" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Render: Recruiter / Admin Preview Mode ────────────────────────────────
+    if (user?.role === 'recruiter' || user?.role === 'admin') {
+        const totalMaxScore = assessment?.questions?.reduce((acc, q) => acc + (q.points || 10), 0) || 0;
+        return (
+            <div className="ap-page">
+                <div className="ap-card" style={{ maxWidth: '650px', textAlign: 'center', padding: '2.5rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛡️</div>
+                    <h2 style={{ fontSize: '1.6rem', color: '#1e293b', marginBottom: '0.5rem' }}>
+                        Assessment Overview ({user.role === 'admin' ? 'Admin' : 'Recruiter'})
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                        You are viewing <strong>{assessment?.title}</strong> as an authenticated {user.role}.
+                        Interactive screening attempts and submissions are reserved strictly for job applicants.
+                    </p>
+
+                    <div style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '1.25rem',
+                        textAlign: 'left',
+                        marginBottom: '2rem'
+                    }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.9rem' }}>
+                            <div>
+                                <span style={{ color: '#64748b' }}>Time Limit:</span>{' '}
+                                <strong style={{ color: '#0f172a' }}>{assessment?.time_limit_minutes} minutes</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#64748b' }}>Total Questions:</span>{' '}
+                                <strong style={{ color: '#0f172a' }}>{totalQuestions} questions</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#64748b' }}>Max Score:</span>{' '}
+                                <strong style={{ color: '#0f172a' }}>{totalMaxScore} pts</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#64748b' }}>Linked Job ID:</span>{' '}
+                                <strong style={{ color: '#0f172a' }}>{assessment?.job_id ? `#${assessment.job_id}` : 'Standalone'}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <Link
+                            to={user.role === 'admin' ? `/admin/assessments/${assessmentId}` : `/recruiter/assessments/${assessmentId}/edit`}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                color: '#ffffff',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                textDecoration: 'none',
+                                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                            }}
+                        >
+                            ✏️ Edit Questions
+                        </Link>
+
+                        <Link
+                            to={`/assessments/${assessmentId}/leaderboard`}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: 'linear-gradient(135deg, #0f172a, #334155)',
+                                color: '#fbbf24',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                textDecoration: 'none',
+                                border: '1px solid rgba(251, 191, 36, 0.3)',
+                            }}
+                        >
+                            🏆 View Leaderboard
+                        </Link>
+
+                        <BackButton label="Exit Preview" fallback={user.role === 'admin' ? '/admin/assessments' : '/recruiter/dashboard'} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Render: Already Submitted (candidate already took this test) ────────
+    if (assessment?.already_submitted) {
+        const score = assessment.previous_score ?? 0;
+        const total = assessment.max_score ?? 0;
+        const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+        return (
+            <div className="ap-page">
+                <div className="ap-card ap-result">
+                    <div className="ap-result-icon">✅</div>
+                    <h2>Assessment Already Completed</h2>
+                    <p className="ap-result-message">
+                        You have already submitted this assessment.
+                    </p>
+
+                    <div className="ap-score-box">
+                        <span className="ap-score-value">{percentage}%</span>
+                        <span className="ap-score-label">
+                            {score} / {total} pts
+                        </span>
+                    </div>
+
+                    {renderAiFeedbackSection()}
+
+                    <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <Link
+                            to={`/assessments/${assessmentId}/leaderboard`}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: 'linear-gradient(135deg, #0f172a, #334155)',
+                                color: '#fbbf24',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                fontWeight: '700',
+                                border: '1px solid rgba(251, 191, 36, 0.4)',
+                                boxShadow: '0 4px 14px rgba(15,23,42,0.2)'
+                            }}
+                        >
+                            🏆 View Assessment Leaderboard
+                        </Link>
+                        <Link
+                            to="/jobs"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 24px',
+                                background: '#f1f5f9',
+                                color: '#334155',
+                                borderRadius: '10px',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                            }}
+                        >
+                            ← Back to Jobs
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -287,6 +589,8 @@ const AssessmentPage = () => {
                             {result.score} / {result.totalPossible} pts
                         </span>
                     </div>
+
+                    {renderAiFeedbackSection()}
 
                     <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <Link
@@ -352,7 +656,7 @@ const AssessmentPage = () => {
                 <div className="ap-header-right">
                     {/* Timer — turns red when ≤ 30 s left */}
                     <div className={`ap-timer ${isTimeLow ? 'ap-timer--low' : ''}`}>
-                        ⏱ {formatTime(timeLeft ?? 0)}
+                        ⏱ {timeLeft === null ? '...' : formatTime(timeLeft)}
                     </div>
                     {/* Exam mode has no navbar — give candidates an explicit way out */}
                     <button type="button" className="ap-exit-btn" onClick={handleExit}>
@@ -397,29 +701,47 @@ const AssessmentPage = () => {
                 </p>
                 <h2 className="ap-question-text">{currentQuestion.question_text}</h2>
 
-                {/* Options — each option is a plain string from the DB */}
-                <div className="ap-options">
-                    {currentQuestion.options.map((optionText, idx) => {
-                        // Use array index as a stable letter key: 0='A', 1='B', etc.
-                        const letter = String.fromCharCode(65 + idx); // 'A','B','C','D'
+                {/* Question Type: text / coding or MCQ */}
+                {currentQuestion.question_type === 'text' || currentQuestion.question_type === 'coding' ? (
+                    <div className="ap-text-answer-wrap" style={{ marginTop: '1.25rem' }}>
+                        <textarea
+                            id={`ap-text-${currentQuestion.id}`}
+                            rows={currentQuestion.question_type === 'coding' ? 8 : 4}
+                            placeholder={currentQuestion.question_type === 'coding' ? 'Type or paste your code solution here...' : 'Type your answer here...'}
+                            value={answers[currentQuestion.id] || ''}
+                            onChange={(e) => handleSelectAnswer(currentQuestion.id, e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '1rem',
+                                borderRadius: '10px',
+                                border: '1px solid #cbd5e1',
+                                fontFamily: currentQuestion.question_type === 'coding' ? 'monospace' : 'inherit',
+                                fontSize: '0.95rem',
+                                resize: 'vertical',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <div className="ap-options">
+                        {(currentQuestion.options || []).map((optionText, idx) => {
+                            const letter = String.fromCharCode(65 + idx);
+                            const isSelected = answers[currentQuestion.id] === optionText;
 
-                        // An option is selected if the candidate's stored answer
-                        // for this question matches the option text.
-                        const isSelected = answers[currentQuestion.id] === optionText;
-
-                        return (
-                            <button
-                                key={optionText}
-                                id={`ap-option-${currentQuestion.id}-${idx}`}
-                                onClick={() => handleSelectAnswer(currentQuestion.id, optionText)}
-                                className={`ap-option ${isSelected ? 'ap-option--selected' : ''}`}
-                            >
-                                <span className="ap-option-key">{letter}</span>
-                                <span className="ap-option-label">{optionText}</span>
-                            </button>
-                        );
-                    })}
-                </div>
+                            return (
+                                <button
+                                    key={optionText || idx}
+                                    id={`ap-option-${currentQuestion.id}-${idx}`}
+                                    onClick={() => handleSelectAnswer(currentQuestion.id, optionText)}
+                                    className={`ap-option ${isSelected ? 'ap-option--selected' : ''}`}
+                                >
+                                    <span className="ap-option-key">{letter}</span>
+                                    <span className="ap-option-label">{optionText}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
 
@@ -454,7 +776,7 @@ const AssessmentPage = () => {
                         id="ap-btn-submit"
                         className="ap-btn ap-btn--submit"
                         onClick={handleSubmit}
-                        disabled={!canSubmit || isSubmitting}
+                        disabled={!canSubmit || isSubmitting || submitted}
                     >
                         {isSubmitting ? 'Submitting…' : 'Submit Assessment'}
                     </button>
@@ -464,9 +786,20 @@ const AssessmentPage = () => {
 
             {/* ── Submit Error ─────────────────────────────────────────── */}
             {isSubmitError && (
-                <p className="ap-submit-error">
-                    ⚠️ {submitError?.response?.data?.message ?? 'Submission failed. Please try again.'}
-                </p>
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <p className="ap-submit-error">
+                        ⚠️ {submitError?.response?.data?.message ?? 'Submission failed. Please try again.'}
+                    </p>
+                    <button
+                        type="button"
+                        className="ap-btn ap-btn--submit"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        style={{ marginTop: '8px', display: 'inline-block' }}
+                    >
+                        {isSubmitting ? 'Retrying…' : '🔄 Retry Submit'}
+                    </button>
+                </div>
             )}
 
         </div>

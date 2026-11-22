@@ -51,9 +51,10 @@
  */
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import BackButton from '../../Components/BackButton'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getJobById, applyToJob } from '../../services/jobService'
+import { getJobById, applyToJob, getMyApplications } from '../../services/jobService'
 import { getAssessmentByJobId } from '../../services/assessmentService'
 import FileUploadInput from '../../Components/FileUploadInput'
 
@@ -396,16 +397,27 @@ const JobDetailPage = () => {
     retry: 2,
   })
 
+  const user = useSelector((state) => state.auth?.user)
+  const isRecruiterOrAdmin = user?.role === 'recruiter' || user?.role === 'admin'
+
+  // Query candidate's applications so we know if already applied even on page refresh
+  const { data: myApps } = useQuery({
+    queryKey: ['myApplications'],
+    queryFn: getMyApplications,
+    enabled: user?.role === 'candidate',
+    staleTime: 1000 * 60,
+  })
+
   // ── Check if this job has an assessment ──────────────────────────────────
   // GET /api/assessments/by-job/:jobId
-  // Returns { id, title, time_limit_minutes } or null.
-  // We use this to show or hide the "Take Assessment" button.
+  // Returns { id, title, time_limit_minutes, candidate_status, remaining_seconds, candidate_score } or null.
+  // We use this to show or hide the "Take Assessment" button and track attempt state.
   // enabled: !!jobId ensures the query only runs once jobId is available.
   const { data: jobAssessment } = useQuery({
     queryKey: ['job-assessment', jobId],
     queryFn:  () => getAssessmentByJobId(jobId),
     enabled:  !!jobId,
-    staleTime: 1000 * 60 * 5,  // 5 minutes — assessment rarely changes
+    staleTime: 5000,  // 5 seconds so status refreshes quickly upon returning
   })
 
   /**
@@ -445,6 +457,9 @@ const JobDetailPage = () => {
       setShowModal(false)
     },
   })
+
+  // Candidate application status: true if just submitted OR already in their applications list
+  const alreadyApplied = hasApplied || (myApps || []).some(app => Number(app.job_id) === Number(jobId))
 
   // ── Format helpers ─────────────────────────────────────────────────────────
   const formatSalary = (min, max) => {
@@ -569,64 +584,204 @@ const JobDetailPage = () => {
               <p style={{ color: '#94a3b8', fontStyle: 'italic' }}>No description provided.</p>
             )}
 
-            {/* ── Apply Section ─────────────────────────────────────────────────
+            {/* ── Apply & Assessment Section ──────────────────────────────────
                 Behaviour matrix:
                   job.status !== 'open'  → show "position closed" notice
-                  hasApplied             → show disabled "Applied ✓" button
-                  otherwise              → show active "Apply Now" button
+                  isRecruiterOrAdmin     → show role info banner & manage buttons (no candidate test)
+                  candidate:
+                    alreadyApplied       → show permanent "Applied ✓" badge
+                    otherwise            → show active "Apply Now" button
+                    assessment:
+                      'completed'        → show "🎯 Assessment Completed" score badge + leaderboard
+                      'in_progress'      → show "⏱ Resume Assessment" button + leaderboard
+                      'not_started'      → show "📝 Take Assessment" button + leaderboard
                 ─────────────────────────────────────────────────────────────── */}
             <div style={styles.applySection}>
               {job.status === 'open' ? (
                 <>
-                  {hasApplied ? (
-                    /* ── Success state: permanent "Applied ✓" ──────────────── */
-                    <div style={styles.appliedBadge}>
-                      <span style={{ fontSize: '1.25rem' }}>✅</span>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 700, color: '#166534' }}>
-                          Application Submitted!
-                        </p>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#15803d' }}>
-                          You've applied to this job. Good luck!
-                        </p>
+                  {isRecruiterOrAdmin ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                      <div style={{ ...styles.appliedBadge, background: '#f8fafc', borderColor: '#cbd5e1' }}>
+                        <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, color: '#334155' }}>
+                            Viewing as {user?.role}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                            Candidate application submissions and quiz attempts are reserved for applicants.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Recruiter / Admin assessment management */}
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {jobAssessment ? (
+                          <>
+                            <Link
+                              to={user?.role === 'admin' ? `/admin/assessments/${jobAssessment.id}` : `/recruiter/assessments/${jobAssessment.id}/edit`}
+                              style={{ ...styles.assessmentBtn, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
+                            >
+                              ⚙️ Manage Assessment
+                              <span style={styles.assessmentMeta}>
+                                {jobAssessment.title} · {jobAssessment.time_limit_minutes} min
+                              </span>
+                            </Link>
+
+                            <Link
+                              to={`/assessments/${jobAssessment.id}/leaderboard`}
+                              style={styles.leaderboardBtn}
+                            >
+                              🏆 Leaderboard
+                              <span style={styles.assessmentMeta}>
+                                View candidate rankings
+                              </span>
+                            </Link>
+                          </>
+                        ) : (
+                          <Link
+                            to={`/recruiter/assessments/new?job_id=${jobId}`}
+                            style={{ ...styles.assessmentBtn, background: 'linear-gradient(135deg, #0284c7, #0369a1)' }}
+                          >
+                            ➕ Create Assessment
+                            <span style={styles.assessmentMeta}>
+                              Design screening quiz for this role
+                            </span>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   ) : (
-                    /* ── Default: "Apply Now" opens modal ──────────────────── */
-                    <button
-                      id="apply-btn"
-                      style={styles.applyBtn}
-                      onClick={() => setShowModal(true)}
-                      aria-label={`Apply for ${job.title} at ${job.company}`}
-                    >
-                      ✉️ Apply Now
-                    </button>
-                  )}
+                    /* ── Candidate View: Action Center ── */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+                      
+                      {/* Step 1: Application Box */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '16px',
+                        padding: '16px 20px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '14px',
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '1rem' }}>📄</span>
+                            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#f1f5f9' }}>
+                              Step 1: Application Submission
+                            </h3>
+                          </div>
+                          <p style={{ margin: '4px 0 0 24px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                            {alreadyApplied
+                              ? 'Your resume has been submitted and is under review.'
+                              : 'Submit your resume and candidate details to apply for this position.'}
+                          </p>
+                        </div>
 
-                  {/* Take Assessment & Leaderboard buttons — shown when this job has an assessment. */}
-                  {jobAssessment && (
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Link
-                        id="take-assessment-btn"
-                        to={`/assessments/${jobAssessment.id}`}
-                        style={styles.assessmentBtn}
-                      >
-                        📝 Take Assessment
-                        <span style={styles.assessmentMeta}>
-                          {jobAssessment.title} · {jobAssessment.time_limit_minutes} min
-                        </span>
-                      </Link>
+                        <div>
+                          {alreadyApplied ? (
+                            <div style={styles.appliedBadge}>
+                              <span style={{ fontSize: '1.15rem' }}>✅</span>
+                              <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#34d399' }}>
+                                Application Submitted
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              id="apply-btn"
+                              style={styles.applyBtn}
+                              onClick={() => setShowModal(true)}
+                              aria-label={`Apply for ${job.title} at ${job.company}`}
+                            >
+                              ✉️ Apply Now
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-                      <Link
-                        id="view-leaderboard-btn"
-                        to={`/assessments/${jobAssessment.id}/leaderboard`}
-                        style={styles.leaderboardBtn}
-                      >
-                        🏆 Leaderboard
-                        <span style={styles.assessmentMeta}>
-                          View candidate rankings
-                        </span>
-                      </Link>
+                      {/* Step 2: Assessment & Leaderboard Box */}
+                      {jobAssessment && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '16px',
+                          padding: '16px 20px',
+                          background: 'rgba(99, 102, 241, 0.05)',
+                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          borderRadius: '14px',
+                        }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1rem' }}>🧠</span>
+                              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#f1f5f9' }}>
+                                Step 2: Technical Screening Assessment
+                              </h3>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                background: jobAssessment.candidate_status === 'completed'
+                                  ? 'rgba(52, 211, 153, 0.15)'
+                                  : jobAssessment.candidate_status === 'in_progress'
+                                  ? 'rgba(251, 191, 36, 0.15)'
+                                  : 'rgba(99, 102, 241, 0.15)',
+                                color: jobAssessment.candidate_status === 'completed'
+                                  ? '#34d399'
+                                  : jobAssessment.candidate_status === 'in_progress'
+                                  ? '#fbbf24'
+                                  : '#818cf8',
+                                border: '1px solid currentColor',
+                              }}>
+                                {jobAssessment.candidate_status === 'completed'
+                                  ? 'Completed'
+                                  : jobAssessment.candidate_status === 'in_progress'
+                                  ? 'In Progress'
+                                  : `${jobAssessment.time_limit_minutes} Mins`}
+                              </span>
+                            </div>
+                            <p style={{ margin: '4px 0 0 24px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                              {jobAssessment.title} · Tests core competency for this role.
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {jobAssessment.candidate_status === 'completed' ? (
+                              <div id="assessment-completed-badge" style={styles.completedBadge}>
+                                <span>🎯 Score: <strong>{jobAssessment.candidate_score ?? 0} pts</strong></span>
+                              </div>
+                            ) : jobAssessment.candidate_status === 'in_progress' ? (
+                              <Link
+                                id="resume-assessment-btn"
+                                to={`/assessments/${jobAssessment.id}`}
+                                style={styles.resumeBtn}
+                              >
+                                ⏱ Resume Quiz (~{Math.max(1, Math.ceil((jobAssessment.remaining_seconds || 60) / 60))}m left)
+                              </Link>
+                            ) : (
+                              <Link
+                                id="take-assessment-btn"
+                                to={`/assessments/${jobAssessment.id}`}
+                                style={styles.assessmentBtn}
+                              >
+                                📝 Take Assessment
+                              </Link>
+                            )}
+
+                            <Link
+                              id="view-leaderboard-btn"
+                              to={`/assessments/${jobAssessment.id}/leaderboard`}
+                              style={styles.leaderboardBtn}
+                            >
+                              🏆 Leaderboard
+                            </Link>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -659,57 +814,62 @@ const JobDetailPage = () => {
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const styles = {
   page: {
-    maxWidth: '820px',
+    maxWidth: '860px',
     margin: '0 auto',
-    padding: '2rem 1.5rem',
+    padding: '2.5rem 1.5rem',
     fontFamily: '"Inter", system-ui, sans-serif',
   },
   backLink: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
     marginBottom: '1.5rem',
     fontSize: '0.875rem',
-    color: '#6366f1',
+    color: '#818cf8',
     textDecoration: 'none',
-    fontWeight: 500,
+    fontWeight: 600,
     transition: 'color 0.15s',
   },
   card: {
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
+    background: 'var(--color-surface, #111520)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '20px',
     padding: '2.5rem',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.25rem',
-    boxShadow: '0 1px 8px rgba(15, 23, 42, 0.06)',
+    gap: '1.5rem',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)',
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: '1rem',
+    gap: '1.25rem',
   },
   title: {
     margin: 0,
-    fontSize: '1.75rem',
+    fontSize: '1.85rem',
     fontWeight: 800,
-    color: '#0f172a',
+    color: '#f8fafc',
     lineHeight: 1.25,
+    letterSpacing: '-0.02em',
   },
   company: {
-    margin: '6px 0 0',
-    fontSize: '1rem',
-    color: '#64748b',
+    margin: '8px 0 0',
+    fontSize: '1.05rem',
+    color: '#94a3b8',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '8px',
+    fontWeight: 500,
   },
   badge: {
-    padding: '4px 12px',
+    padding: '5px 14px',
     borderRadius: '999px',
     fontSize: '0.8rem',
-    fontWeight: 600,
-    textTransform: 'capitalize',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
     flexShrink: 0,
     alignSelf: 'flex-start',
     marginTop: '4px',
@@ -717,125 +877,155 @@ const styles = {
   meta: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: '0.6rem',
+    gap: '0.75rem',
     alignItems: 'center',
   },
   chip: {
-    fontSize: '0.83rem',
-    color: '#475569',
-    background: '#f8fafc',
-    padding: '5px 12px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
+    fontSize: '0.85rem',
+    color: '#cbd5e1',
+    background: 'rgba(255, 255, 255, 0.04)',
+    padding: '6px 14px',
+    borderRadius: '999px',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    fontWeight: 500,
   },
   divider: {
     border: 'none',
-    borderTop: '1px solid #f1f5f9',
-    margin: '0.25rem 0',
+    borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+    margin: '0.5rem 0',
   },
   section: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: '0.85rem',
   },
   sectionTitle: {
     margin: 0,
-    fontSize: '1rem',
+    fontSize: '1.05rem',
     fontWeight: 700,
-    color: '#0f172a',
+    color: '#f1f5f9',
+    letterSpacing: '-0.01em',
   },
   description: {
     margin: 0,
-    fontSize: '0.9375rem',
-    color: '#475569',
-    lineHeight: 1.75,
+    fontSize: '0.95rem',
+    color: '#cbd5e1',
+    lineHeight: 1.8,
     whiteSpace: 'pre-wrap',
   },
   applySection: {
     marginTop: '0.5rem',
-    paddingTop: '1.25rem',
-    borderTop: '1px solid #f1f5f9',
+    paddingTop: '1.5rem',
+    borderTop: '1px solid rgba(255, 255, 255, 0.07)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: '0.6rem',
+    gap: '1rem',
   },
   applyBtn: {
-    padding: '0.75rem 2rem',
-    background: '#6366f1',
+    padding: '12px 28px',
+    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
     color: '#fff',
     border: 'none',
-    borderRadius: '10px',
-    fontSize: '1rem',
+    borderRadius: '12px',
+    fontSize: '0.95rem',
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'background 0.2s, transform 0.15s, box-shadow 0.2s',
-    letterSpacing: '0.01em',
+    transition: 'all 0.18s ease',
+    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.35)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
   },
   appliedBadge: {
-    display: 'flex',
+    display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.75rem',
-    background: '#f0fdf4',
-    border: '1px solid #bbf7d0',
+    gap: '8px',
+    background: 'rgba(52, 211, 153, 0.12)',
+    border: '1px solid rgba(52, 211, 153, 0.35)',
     borderRadius: '12px',
-    padding: '0.875rem 1.25rem',
+    padding: '10px 18px',
+  },
+  completedBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(52, 211, 153, 0.12)',
+    border: '1px solid rgba(52, 211, 153, 0.35)',
+    borderRadius: '10px',
+    padding: '10px 18px',
+    color: '#34d399',
+    fontSize: '0.9rem',
+    fontWeight: 600,
   },
   closedNotice: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    fontSize: '0.9rem',
-    color: '#64748b',
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '0.75rem 1rem',
+    gap: '10px',
+    fontSize: '0.92rem',
+    color: '#94a3b8',
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '12px',
+    padding: '1rem 1.25rem',
+    width: '100%',
   },
   assessmentBtn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: '3px',
-    padding: '0.7rem 1.5rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 22px',
     background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
     color: '#fff',
     borderRadius: '10px',
-    fontSize: '0.95rem',
+    fontSize: '0.9rem',
     fontWeight: 700,
     textDecoration: 'none',
-    transition: 'opacity 0.15s, transform 0.15s',
-    boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+    transition: 'all 0.18s ease',
+    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
+  },
+  resumeBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 22px',
+    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    color: '#fff',
+    borderRadius: '10px',
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    textDecoration: 'none',
+    transition: 'all 0.18s ease',
+    boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
   },
   leaderboardBtn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: '3px',
-    padding: '0.7rem 1.5rem',
-    background: 'linear-gradient(135deg, #0f172a, #334155)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    background: 'rgba(251, 191, 36, 0.08)',
     color: '#fbbf24',
     borderRadius: '10px',
-    fontSize: '0.95rem',
+    fontSize: '0.9rem',
     fontWeight: 700,
     textDecoration: 'none',
-    transition: 'opacity 0.15s, transform 0.15s',
-    boxShadow: '0 4px 14px rgba(15,23,42,0.25)',
-    border: '1px solid rgba(251,191,36,0.3)',
+    transition: 'all 0.18s ease',
+    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+    border: '1px solid rgba(251, 191, 36, 0.35)',
   },
   assessmentMeta: {
-    fontSize: '0.75rem',
+    fontSize: '0.78rem',
     fontWeight: 400,
     opacity: 0.85,
   },
   errorBox: {
     display: 'flex',
-    gap: '1rem',
+    gap: '1.25rem',
     alignItems: 'flex-start',
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: '14px',
-    padding: '1.5rem',
+    background: 'rgba(248, 113, 113, 0.08)',
+    border: '1px solid rgba(248, 113, 113, 0.3)',
+    borderRadius: '16px',
+    padding: '1.75rem',
   },
 }
 

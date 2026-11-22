@@ -100,6 +100,35 @@ const getAssessment = async (req, res, next) => {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/assessments/:id/start
+//
+// Candidate starts an assessment — records server-side start time.
+// Returns { attemptId, started_at, time_limit_minutes } so the frontend
+// can show a countdown, but the server enforces the actual deadline.
+// ─────────────────────────────────────────────────────────────────────────────
+const startAssessment = async (req, res, next) => {
+    try {
+
+        const result = await assessmentService.startAssessment(
+            req.params.id,
+            req.user.id    // candidateId from JWT
+        );
+
+        const message = result.already_started
+            ? 'Assessment already in progress — resuming timer'
+            : 'Assessment started — timer is now running on the server';
+
+        return res.status(200).json(
+            new ApiResponse(200, result, message)
+        );
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/assessments/:id/submit
 //
 // Candidate submits their answers.
@@ -153,7 +182,11 @@ const submitAssessment = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const getAssessmentByJobId = async (req, res, next) => {
     try {
-        const assessment = await assessmentService.getAssessmentByJobId(req.params.jobId);
+        const assessment = await assessmentService.getAssessmentByJobId(
+            req.params.jobId,
+            req.user?.id,
+            req.user?.role
+        );
 
         // Return null data (not 404) when no assessment exists for this job.
         // The frontend treats null as "no assessment" and hides the button.
@@ -173,6 +206,7 @@ module.exports = {
     createAssessment,
     updateAssessment,
     getAssessment,
+    startAssessment,
     submitAssessment,
     getAssessmentByJobId,
 };

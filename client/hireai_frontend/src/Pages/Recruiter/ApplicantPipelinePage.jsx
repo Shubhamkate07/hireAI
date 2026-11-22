@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector, useDispatch } from 'react-redux';
 import { getJobApplicants, updateApplicantStatus } from '../../services/recruiterService';
+import { screenResumeAI } from '../../services/aiService';
 import { logoutUser } from '../../store/slices/authSlice';
 import './ApplicantPipelinePage.css';
 import BackButton from '../../Components/BackButton';
@@ -35,6 +36,24 @@ const ApplicantPipelinePage = () => {
     // Modal state for terminal status transitions (rejected, hired)
     const [pendingTransition, setPendingTransition] = useState(null); // { app, nextStatus }
     const [modalNotes, setModalNotes] = useState('');
+
+    // AI Resume Screening state
+    const [aiScreenResults, setAiScreenResults] = useState({});
+    const [screeningId, setScreeningId] = useState(null);
+
+    const handleScreenResume = async (applicationId) => {
+        try {
+            setScreeningId(applicationId);
+            const data = await screenResumeAI(applicationId);
+            if (data) {
+                setAiScreenResults(prev => ({ ...prev, [applicationId]: data }));
+            }
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to screen resume with AI');
+        } finally {
+            setScreeningId(null);
+        }
+    };
 
     // Fetch applications for this job
     const {
@@ -187,8 +206,87 @@ const ApplicantPipelinePage = () => {
                                                         </div>
                                                         <p className="email">{app.candidate_email}</p>
 
-                                                        {app.resume_path && (
-                                                            <div className="resume-tag">📄 Resume Attached</div>
+                                                        {/* Action row: Resume + AI Match */}
+                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
+                                                            {app.resume_path && (
+                                                                <a
+                                                                    href={`/api/applications/${app.application_id}/resume`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '5px',
+                                                                        padding: '5px 12px',
+                                                                        background: 'rgba(52, 211, 153, 0.12)',
+                                                                        border: '1px solid rgba(52, 211, 153, 0.35)',
+                                                                        borderRadius: '6px',
+                                                                        color: '#34d399',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 600,
+                                                                        textDecoration: 'none',
+                                                                    }}
+                                                                >
+                                                                    📄 Resume ↗
+                                                                </a>
+                                                            )}
+
+                                                            {!aiScreenResults[app.application_id] && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={screeningId === app.application_id}
+                                                                    onClick={() => handleScreenResume(app.application_id)}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        padding: '5px 12px',
+                                                                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        borderRadius: '6px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 600,
+                                                                        cursor: screeningId === app.application_id ? 'wait' : 'pointer',
+                                                                        opacity: screeningId === app.application_id ? 0.7 : 1,
+                                                                        boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
+                                                                    }}
+                                                                >
+                                                                    {screeningId === app.application_id ? '⏳ Screening...' : '✨ AI Match Score'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        {/* AI Resume Screening Card */}
+                                                        {aiScreenResults[app.application_id] && (
+                                                            <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c7d2fe' }}>✨ AI Match Score</span>
+                                                                    <span style={{
+                                                                        fontSize: '0.8rem',
+                                                                        fontWeight: 800,
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '999px',
+                                                                        background: aiScreenResults[app.application_id].matchScore >= 80 ? 'rgba(52, 211, 153, 0.2)' : aiScreenResults[app.application_id].matchScore >= 60 ? 'rgba(251, 191, 36, 0.2)' : 'rgba(248, 113, 113, 0.2)',
+                                                                        color: aiScreenResults[app.application_id].matchScore >= 80 ? '#34d399' : aiScreenResults[app.application_id].matchScore >= 60 ? '#fbbf24' : '#f87171',
+                                                                        border: '1px solid currentColor',
+                                                                    }}>
+                                                                        {aiScreenResults[app.application_id].matchScore}% {aiScreenResults[app.application_id].matchScore >= 80 ? '🎯' : ''}
+                                                                    </span>
+                                                                </div>
+                                                                <p style={{ margin: '0 0 6px', fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                                                                    {aiScreenResults[app.application_id].summary}
+                                                                </p>
+                                                                {aiScreenResults[app.application_id].topMatchedSkills?.length > 0 && (
+                                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '4px' }}>
+                                                                        {aiScreenResults[app.application_id].topMatchedSkills.slice(0, 3).map((skill, idx) => (
+                                                                            <span key={idx} style={{ fontSize: '0.68rem', background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                                                                ✓ {skill}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         )}
 
                                                         {app.notes && (
@@ -211,7 +309,7 @@ const ApplicantPipelinePage = () => {
                                                                             key={nextStatus}
                                                                             className={`transition-btn btn-${nextStatus}`}
                                                                             onClick={() => handleStatusClick(app, nextStatus)}
-                                                                            disabled={updateMutation.isLoading}
+                                                                            disabled={updateMutation.isPending}
                                                                         >
                                                                             {nextStatus === 'under_review' ? 'Review' : nextStatus}
                                                                         </button>
@@ -272,9 +370,9 @@ const ApplicantPipelinePage = () => {
                             <button
                                 className={`confirm-btn confirm-${pendingTransition.nextStatus}`}
                                 onClick={handleConfirmTerminalTransition}
-                                disabled={updateMutation.isLoading}
+                                disabled={updateMutation.isPending}
                             >
-                                {updateMutation.isLoading ? 'Updating...' : `Confirm ${pendingTransition.nextStatus}`}
+                                {updateMutation.isPending ? 'Updating...' : `Confirm ${pendingTransition.nextStatus}`}
                             </button>
                         </div>
                     </div>

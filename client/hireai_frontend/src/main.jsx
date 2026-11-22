@@ -11,11 +11,11 @@ import { checkAuth } from './store/slices/authSlice.js';
 
 // ─── React Query ──────────────────────────────────────────────────────────────
 // QueryClient is the in-memory cache brain of React Query.
-// We configure it once here and share it across the whole app via QueryClientProvider.
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+// We configure it once in queryClient.js and share it across the whole app via QueryClientProvider.
+import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-
-const queryClient = new QueryClient()
+import { queryClient } from './queryClient.js'
+export { queryClient };
 
 // Give the Axios interceptor a reference to the store
 // so it can dispatch clearUser() on any 401 response

@@ -125,28 +125,46 @@ const getPlatformStats = async () => {
 //
 // LIMIT 20: Only fetch the top 20 to keep the payload small.
 const getAssessmentLeaderboard = async (assessmentId) => {
+    // 1. Fetch total possible points for percentage calculation
+    const [qRows] = await pool.query(
+        `SELECT SUM(points) AS total_points FROM questions WHERE assessment_id = ?`,
+        [assessmentId]
+    );
+    const maxScore = Number(qRows[0]?.total_points || 0);
+
+    // 2. Fetch top 20 submitted attempts with MySQL 8 RANK() window function (NO email exposed!)
     const [rows] = await pool.query(
         `SELECT
-            u.name,
-            u.email,
+            u.id AS candidate_id,
+            u.name AS candidate_name,
             at.score,
             at.submitted_at,
             RANK() OVER (ORDER BY at.score DESC) AS rank_position
          FROM assessment_attempts at
          JOIN users u ON at.candidate_id = u.id
-         WHERE at.assessment_id = ?
+         WHERE at.assessment_id = ? AND at.submitted_at IS NOT NULL
          ORDER BY at.score DESC
          LIMIT 20`,
         [assessmentId]
     );
 
-    return rows.map((row) => ({
-        name:          row.name,
-        email:         row.email,
-        score:         Number(row.score),
-        submitted_at:  row.submitted_at,
-        rank_position: Number(row.rank_position),
-    }));
+    return rows.map((row) => {
+        const score = Number(row.score);
+        const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+        const rank = Number(row.rank_position);
+
+        return {
+            candidate_id:   row.candidate_id,
+            candidate_name: row.candidate_name,
+            name:           row.candidate_name, // fallback for legacy consumers
+            score:          score,
+            max_score:      maxScore,
+            percentage:     percentage,
+            submitted_at:   row.submitted_at,
+            rank:           rank,
+            rank_position:  rank,
+        };
+    });
 };
 
 // ─── Hiring-Speed Analytics ───────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../store/slices/authSlice';
+import { queryClient } from '../main';
 import NotificationBell from './NotificationBell';
 import './Navbar.css';
 
@@ -57,6 +58,7 @@ const Navbar = () => {
 
     const handleLogout = async () => {
         await dispatch(logoutUser());
+        queryClient.clear();
         navigate('/login');
     };
 

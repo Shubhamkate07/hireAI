@@ -3,12 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config/env.config');
 const ApiError = require('../utils/ApiError');
+const logger = require('../utils/logger');
 
 // Candidate models in preference order (fast, JSON-supported, free-tier friendly)
 const MODEL_CANDIDATES = [
     'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.8-flash',
 ];
 
 // Initialize Gemini SDK with your API key
@@ -29,29 +30,35 @@ const generateWithFallback = async ({ prompt, contents, temperature = 0.2 }) => 
 
     const inputContents = contents || prompt;
 
-    for (const model of MODEL_CANDIDATES) {
-        try {
-            const response = await ai.models.generateContent({
-                model,
-                contents: inputContents,
-                config: {
-                    responseMimeType: 'application/json',
-                    temperature,
-                }
-            });
+    // Two passes over the model list with a short pause: free-tier models often
+    // return transient 503 (high demand) / 429 (per-minute limit).
+    const errors = [];
+    for (let pass = 0; pass < 2; pass++) {
+        if (pass > 0) await new Promise((r) => setTimeout(r, 2000));
+        for (const model of MODEL_CANDIDATES) {
+            try {
+                const response = await ai.models.generateContent({
+                    model,
+                    contents: inputContents,
+                    config: {
+                        responseMimeType: 'application/json',
+                        temperature,
+                    }
+                });
 
-            const text = response.text?.trim();
-            if (text) {
-                return JSON.parse(text);
+                const text = response.text?.trim();
+                if (text) {
+                    return JSON.parse(text);
+                }
+            } catch (err) {
+                lastError = err;
+                errors.push(`${model}: ${String(err.message).slice(0, 120)}`);
             }
-        } catch (err) {
-            lastError = err;
-            // Continue to next model if unavailable or busy
-            continue;
         }
     }
+    logger.warn(`Gemini: all models failed -> ${errors.join(' | ')}`);
 
-    throw new ApiError(502, `Gemini AI generation failed: ${lastError?.message || 'All models unavailable'}`);
+    throw new ApiError(502, `AI service is temporarily busy. Please try again in a minute.`);
 };
 
 /**

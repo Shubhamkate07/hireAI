@@ -44,6 +44,7 @@ const startServer = async () => {
         // ── DB health check ────────────────────────────────────────────────────
         await pool.query('SELECT 1');
         console.log('✅ Database connection verified');
+        await require('./src/config/migrate')();
 
         // ── Start HTTP server ──────────────────────────────────────────────────
         app.listen(config.port, () => {

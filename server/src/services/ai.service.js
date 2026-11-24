@@ -6,9 +6,9 @@ const ApiError = require('../utils/ApiError');
 
 // Candidate models in preference order (fast, JSON-supported, free-tier friendly)
 const MODEL_CANDIDATES = [
-    'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
-    'gemini-3.1-pro-preview',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
 ];
 
 // Initialize Gemini SDK with your API key

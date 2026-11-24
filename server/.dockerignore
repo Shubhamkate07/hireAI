@@ -7,3 +7,8 @@ dist
 coverage
 README.md
 .DS_Store
+uploads/
+uploads/resumes/
+*.pdf
+*.doc
+*.docx

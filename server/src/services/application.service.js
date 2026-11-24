@@ -1,6 +1,7 @@
 const applicationModel = require('../models/application.model');
 const jobModel         = require('../models/job.model');
 const ApiError         = require('../utils/ApiError');
+const redis            = require('../config/redis');
 
 // ─── Apply to a job ───────────────────────────────────────────────────────────
 const applyToJob = async (jobId, userId, userRole, resumePath) => {
@@ -32,6 +33,15 @@ const applyToJob = async (jobId, userId, userRole, resumePath) => {
             userId,
             resumePath   // null if no file was uploaded
         );
+
+        // Invalidate analytics caches
+        try {
+            await Promise.all([
+                redis.del(`analytics:recruiter:${job.posted_by}`),
+                redis.del(`analytics:recruiter:apps:${job.posted_by}`),
+                redis.del('analytics:platform'),
+            ]);
+        } catch (e) {}
 
         return { application_id: applicationId, job_id: jobId, status: 'applied' };
 
@@ -82,8 +92,39 @@ const getMyApplications = async (userId) => {
 
 };
 
+// ─── Get resume file path for authorized download ─────────────────────────────
+const getResumeFile = async (applicationId, userId, userRole) => {
+    const app = await applicationModel.findById(applicationId);
+    if (!app) {
+        throw new ApiError(404, 'Application not found');
+    }
+    if (!app.resume_path) {
+        throw new ApiError(404, 'No resume attached to this application');
+    }
+
+    // Role-based authorization:
+    // • Candidate can only view their own resume
+    // • Recruiter can view resumes for jobs they posted
+    // • Admin can view any resume
+    if (userRole === 'candidate') {
+        if (Number(app.candidate_id) !== Number(userId)) {
+            throw new ApiError(403, 'Unauthorized access to resume');
+        }
+    } else if (userRole === 'recruiter') {
+        const job = await jobModel.findJobById(app.job_id);
+        if (!job || Number(job.posted_by) !== Number(userId)) {
+            throw new ApiError(403, 'Unauthorized access to resume');
+        }
+    } else if (userRole !== 'admin') {
+        throw new ApiError(403, 'Unauthorized access to resume');
+    }
+
+    return app.resume_path;
+};
+
 module.exports = {
     applyToJob,
     getApplicationsForJob,
     getMyApplications,
+    getResumeFile,
 };

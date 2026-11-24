@@ -4,6 +4,7 @@ const helmet= require('helmet');
 const morgan= require('morgan');
 const multer = require('multer'); // needed only for instanceof check in error handler
 const config = require('./config/env.config');
+const ApiError = require('./utils/ApiError');
 const authRoutes            = require('./routes/auth.routes');
 const userRoutes            = require('./routes/user.routes');
 const jobRoutes             = require('./routes/job.routes');
@@ -15,6 +16,7 @@ const notificationRoutes    = require('./routes/notification.routes');     // /a
 const sseRoutes             = require('./routes/sse.routes');               // /api/sse
 const analyticsRoutes       = require('./routes/analytics.routes');         // /api/analytics
 const adminRoutes           = require('./routes/admin.routes');             // /api/admin
+const aiRoutes              = require('./routes/ai.routes');                // /api/ai
 
 const cookieParser = require("cookie-parser");
 
@@ -105,11 +107,15 @@ app.use('/api/analytics', analyticsRoutes);
 // Admin endpoints: /api/admin/users/:id/role, /api/admin/jobs/:id/status, /api/admin/assessments, etc.
 app.use('/api/admin', adminRoutes);
 
+// AI endpoints: /api/ai/generate-assessment, /api/ai/screen-resume, etc.
+app.use('/api/ai', aiRoutes);
+
 
 // server health check api
 app.get('/api/health',(req,res)=>{
     res.status(200).json({
         status:"ok",
+        ai: Boolean(process.env.GEMINI_API_KEY),
         timestamp:Date.now()
     })
 });
@@ -160,8 +166,22 @@ app.use((err, req, res, next) => {
     }
 
     // ── All other errors (ApiError, DB errors, etc.) ──────────────────────────
+    const isApiError = err instanceof ApiError || (err.statusCode && err.statusCode < 500);
     const statusCode = err.statusCode || 500;
-    const message    = err.message    || 'Internal Server Error';
+
+    let message;
+    if (isApiError) {
+        message = err.message;
+    } else if (config.isDev) {
+        message = err.message || 'Internal Server Error';
+    } else {
+        // Prevent leaking raw database and filesystem errors to client in production
+        message = 'An unexpected internal server error occurred';
+    }
+
+    if (statusCode >= 500) {
+        console.error('Unhandled Server Error:', err);
+    }
 
     return res.status(statusCode).json({
         success: false,

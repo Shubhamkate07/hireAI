@@ -39,8 +39,8 @@ const registerValidation = [
 
     body("role")
         .optional()
-        .isIn(["candidate", "recruiter", "admin"])
-        .withMessage("Role must be candidate, recruiter, or admin"),
+        .isIn(["candidate", "recruiter"])
+        .withMessage("Role must be candidate or recruiter"),
 
 ];
 
@@ -202,8 +202,8 @@ const updateJobValidation = [
 
     body("status")
         .optional()
-        .isIn(["active", "closed", "draft"])
-        .withMessage("status must be one of: active, closed, draft"),
+        .isIn(["open", "closed", "draft"])
+        .withMessage("status must be one of: open, closed, draft"),
 
 ];
 

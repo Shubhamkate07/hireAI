@@ -2,8 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import JobsListPage from './JobsListPage';
 import * as jobService from '../../services/jobService';
+import authReducer from '../../store/slices/authSlice';
 
 // Helper: create isolated QueryClient per test to avoid state pollution
 const createTestClient = () => new QueryClient({
@@ -12,21 +15,37 @@ const createTestClient = () => new QueryClient({
   }
 });
 
-// Helper: render component wrapped in QueryClientProvider and MemoryRouter
-const renderWithProviders = (ui) => {
+// Helper: render component wrapped in Provider, QueryClientProvider and MemoryRouter
+const renderWithProviders = (ui, userValue = null) => {
   const queryClient = createTestClient();
+  const store = configureStore({
+    reducer: {
+      auth: authReducer,
+    },
+    preloadedState: {
+      auth: {
+        user: userValue,
+        isAuthenticated: !!userValue,
+        loading: false,
+      },
+    },
+  });
+
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        {ui}
-      </MemoryRouter>
-    </QueryClientProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          {ui}
+        </MemoryRouter>
+      </QueryClientProvider>
+    </Provider>
   );
 };
 
 // Mock the jobService module
 vi.mock('../../services/jobService', () => ({
   getJobs: vi.fn(),
+  createJob: vi.fn(),
 }));
 
 describe('JobsListPage Integration Tests', () => {

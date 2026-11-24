@@ -33,6 +33,7 @@
 
 const sseService          = require('../services/sse.service');
 const notificationService = require('../services/notification.service');
+const logger              = require('../utils/logger');
 
 const connect = async (req, res) => {
     const userId = req.user.id;
@@ -57,13 +58,13 @@ const connect = async (req, res) => {
             res.write(`data: ${JSON.stringify({ type: 'initial', notifications: unreadNotifications })}\n\n`);
         }
     } catch (err) {
-        console.error('[SSE] Error loading initial notifications:', err.message);
+        logger.error(`[SSE] Error loading initial notifications: ${err.message}`);
     }
 
     // ── Step 5: Cleanup on disconnect ─────────────────────────────────────────
     req.on('close', () => {
         sseService.removeClient(userId, res, assessmentId);
-        console.log(`[SSE] Client disconnected. userId=${userId}, assessmentId=${assessmentId}. Active connections: ${sseService.getConnectedCount()}`);
+        logger.debug(`[SSE] Client disconnected. userId=${userId}, assessmentId=${assessmentId}. Active connections: ${sseService.getConnectedCount()}`);
     });
 };
 

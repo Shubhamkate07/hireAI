@@ -53,6 +53,20 @@ export const getAssessment = async (assessmentId) => {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// startAssessment(assessmentId)
+//
+// POST /api/assessments/:id/start
+//
+// Starts the assessment attempt on the server, returning remaining_seconds
+// and started_at timestamp.
+// ─────────────────────────────────────────────────────────────────────────────
+export const startAssessment = async (assessmentId) => {
+    const response = await api.post(`/assessments/${assessmentId}/start`);
+    return response.data.data;
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // getAssessmentByJobId(jobId)
 //
 // GET /api/assessments/by-job/:jobId

@@ -6,7 +6,7 @@ const authController =
 const authMiddleware =
     require("../middleware/auth.middleware");
 
-const authLimiter =
+const { authLimiter } =
     require("../middleware/rateLimit.middleware");
 
 const {
@@ -17,10 +17,12 @@ const {
 
 const router = express.Router();
 
-router.use(authLimiter);
-
+// authLimiter (10 req / 15 min) protects ONLY the credential endpoints from
+// brute-force. It must NOT wrap /me, /refresh-token or /logout: those run on
+// every page load / every 15 min, so a normal user would hit 429 and be logged out.
 router.post(
     "/register",
+    authLimiter,
     registerValidation,
     validate,
     authController.register
@@ -28,6 +30,7 @@ router.post(
 
 router.post(
     "/login",
+    authLimiter,
     loginValidation,
     validate,
     authController.login

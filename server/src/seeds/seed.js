@@ -38,6 +38,13 @@ const RECRUITER = {
     role:     'recruiter',
 };
 
+const ADMIN = {
+    name:     'System Admin',
+    email:    'admin@hireai.dev',
+    password: 'Admin@123',
+    role:     'admin',
+};
+
 const CANDIDATE = {
     name:     'Bob Candidate',
     email:    'candidate@hireai.dev',
@@ -236,6 +243,7 @@ async function seed() {
         // 1. Seed users
         console.log('👤 Seeding users...');
         const recruiter = await upsertUser(RECRUITER);
+        const admin     = await upsertUser(ADMIN);
         const candidate = await upsertUser(CANDIDATE);
         console.log();
 
@@ -258,6 +266,9 @@ async function seed() {
         console.log('✅ Seed complete!\n');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📋 Quick reference for Postman / curl:\n');
+        console.log(`  Admin      login → POST /api/auth/login`);
+        console.log(`             email:    ${ADMIN.email}`);
+        console.log(`             password: ${ADMIN.password}\n`);
         console.log(`  Recruiter  login → POST /api/auth/login`);
         console.log(`             email:    ${RECRUITER.email}`);
         console.log(`             password: ${RECRUITER.password}\n`);

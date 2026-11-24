@@ -4,7 +4,7 @@
  * ============================================================
  *
  * Registry Maps:
- *   1. clients           : userId (string) → Express res object
+ *   1. clients           : userId (string) → Set of Express res objects
  *   2. assessmentClients : assessmentId (string) → Set of Express res objects
  * ============================================================
  */
@@ -18,7 +18,11 @@ const assessmentClients = new Map();
  */
 const addClient = (userId, res, assessmentId = null) => {
     if (userId) {
-        clients.set(String(userId), res);
+        const id = String(userId);
+        if (!clients.has(id)) {
+            clients.set(id, new Set());
+        }
+        clients.get(id).add(res);
     }
 
     if (assessmentId) {
@@ -35,7 +39,25 @@ const addClient = (userId, res, assessmentId = null) => {
  * Cleans up both user clients Map and assessment clients Set to prevent memory leaks.
  */
 const removeClient = (userId, res = null, assessmentId = null) => {
-    if (userId) {
+    if (userId && res) {
+        const id = String(userId);
+        const set = clients.get(id);
+        if (set) {
+            set.delete(res);
+            if (set.size === 0) {
+                clients.delete(id);
+            }
+        }
+    } else if (res) {
+        for (const [id, set] of clients.entries()) {
+            if (set.has(res)) {
+                set.delete(res);
+                if (set.size === 0) {
+                    clients.delete(id);
+                }
+            }
+        }
+    } else if (userId) {
         clients.delete(String(userId));
     }
 
@@ -62,12 +84,19 @@ const removeClient = (userId, res = null, assessmentId = null) => {
 };
 
 /**
- * Push an event to a specific user.
+ * Push an event to a specific user (across all open tabs/connections).
  */
 const sendToUser = (userId, event) => {
-    const clientRes = clients.get(String(userId));
-    if (clientRes) {
-        clientRes.write(`data: ${JSON.stringify(event)}\n\n`);
+    const set = clients.get(String(userId));
+    if (set && set.size > 0) {
+        const payload = `data: ${JSON.stringify(event)}\n\n`;
+        set.forEach((clientRes) => {
+            try {
+                clientRes.write(payload);
+            } catch (err) {
+                console.error(`[SSE] Failed writing to user socket ${userId}:`, err.message);
+            }
+        });
     }
 };
 
@@ -89,10 +118,40 @@ const sendToAssessmentWatchers = (assessmentId, event) => {
     }
 };
 
+// Periodic keep-alive ping (every 25 seconds) to prevent proxy/firewall timeouts
+const pingInterval = setInterval(() => {
+    const comment = ': ping\n\n';
+    for (const set of clients.values()) {
+        set.forEach((res) => {
+            try {
+                res.write(comment);
+            } catch {}
+        });
+    }
+    for (const set of assessmentClients.values()) {
+        set.forEach((res) => {
+            try {
+                res.write(comment);
+            } catch {}
+        });
+    }
+}, 25000);
+
+if (pingInterval.unref) {
+    pingInterval.unref(); // don't block process exit in tests
+}
+
 /**
  * Debugging utilities
  */
-const getConnectedCount = () => clients.size;
+const getConnectedCount = () => {
+    let total = 0;
+    for (const set of clients.values()) {
+        total += set.size;
+    }
+    return total;
+};
+
 const getAssessmentWatchersCount = (assessmentId) => {
     const set = assessmentClients.get(String(assessmentId));
     return set ? set.size : 0;

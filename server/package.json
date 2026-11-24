@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --check server.js && node --check src/app.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node src/seeds/seed.js"
@@ -14,6 +14,8 @@
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "@google/genai": "^3.6.1",
+    "pdf-parse": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
@@ -26,7 +28,8 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
-    "mysql2": "^3.22.4"
+    "mysql2": "^3.22.4",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

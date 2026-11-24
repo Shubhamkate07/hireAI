@@ -69,3 +69,84 @@ const startServer = async () => {
 };
 
 startServer();
+
+/*
+using cluster create multiple node.js server which share the port and has seperate process id
+
+
+require("dotenv").config();
+
+const cluster = require("node:cluster");
+const os = require("node:os");
+
+const startPrimary = () => {
+    // Use WORKERS from .env, otherwise use available CPU parallelism
+    const workerCount =
+        Number(process.env.WORKERS) || os.availableParallelism();
+
+    console.log("=================================");
+    console.log("HireAI Primary Process:", process.pid);
+    console.log("Starting workers:", workerCount);
+    console.log("=================================");
+
+    for (let i = 0; i < workerCount; i++) {
+        cluster.fork();
+    }
+
+    cluster.on("exit", (worker, code, signal) => {
+        console.log(
+            `Worker ${worker.process.pid} exited. Code: ${code}, Signal: ${signal}`
+        );
+
+        // Initially, log worker failures.
+        // Add controlled worker restart logic after testing.
+    });
+};
+
+const startWorker = async () => {
+    // These modules are loaded only inside worker processes
+    const config = require("./src/config/env.config");
+    const app = require("./src/app");
+    const pool = require("./src/config/database");
+
+    try {
+        // Each worker verifies database connectivity
+        await pool.query("SELECT 1");
+
+        console.log(
+            `Database verified by worker ${process.pid}`
+        );
+
+        // Each worker starts the same Express application
+        const server = app.listen(config.port, () => {
+            console.log(
+                `HireAI worker ${process.pid} running on port ${config.port}`
+            );
+        });
+
+        // Handle server startup/runtime errors
+        server.on("error", (err) => {
+            console.error(`Worker ${process.pid} server error:`, err);
+            process.exit(1);
+        });
+
+    } catch (err) {
+        console.error(
+            `Database connection failed in worker ${process.pid}:`,
+            err.message
+        );
+
+        process.exit(1);
+    }
+};
+
+// Decide which process should execute which function
+if (cluster.isPrimary) {
+    require("./src/config/migrate")()
+        .catch((err) => console.error("[migrate] skipped:", err.message))
+        .finally(startPrimary);
+} else {
+    startWorker();
+}
+
+*/

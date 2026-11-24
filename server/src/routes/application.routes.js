@@ -19,18 +19,22 @@ const rbacMiddleware =
 // If no file is sent, req.file will be undefined (resume_path will be null).
 const upload = require('../middleware/upload.middleware');
 
+const { applyLimiter } = require('../middleware/rateLimit.middleware');
+
 const router = express.Router();
 
 // ─── POST /api/jobs/:jobId/apply ──────────────────────────────────────────────
 // Middleware chain (runs left to right):
-//   1. authMiddleware       — verify JWT, attach req.user
+//   1. authMiddleware       — verify JWT, attach req.user (MUST run before applyLimiter so userId is known)
 //   2. rbacMiddleware       — confirm role === 'candidate'
-//   3. upload.single('resume') — parse the multipart body, save file to disk
-//   4. applicationController.applyToJob — business logic
+//   3. applyLimiter         — rate limit per user (max 10 / 15m)
+//   4. upload.single('resume') — parse the multipart body, save file to disk
+//   5. applicationController.applyToJob — business logic
 router.post(
     '/:jobId/apply',
     authMiddleware,
     rbacMiddleware(['candidate']),
+    applyLimiter,
     upload.single('resume'),
     applicationController.applyToJob
 );

@@ -13,6 +13,12 @@ const getUsers =
       const recent =
          query.recent;
 
+      const search =
+         query.search;
+
+      const role =
+         query.role;
+
       const offset =
          (page - 1) * limit;
 
@@ -20,7 +26,9 @@ const getUsers =
          await userModel.getAllUsers(
             offset,
             limit,
-            recent
+            recent,
+            search,
+            role
          );
 
       // Defence-in-depth: ensure password_hash never reaches the API response
@@ -32,7 +40,9 @@ const getUsers =
 
       const total =
          await userModel.getUserCount(
-            recent
+            recent,
+            search,
+            role
          );
 
       const totalPages =

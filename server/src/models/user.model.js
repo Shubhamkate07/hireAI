@@ -36,7 +36,9 @@ const getAllUsers =
    async(
       offset,
       limit,
-      recent
+      recent,
+      search,
+      role
    )=>{
 
       let query =
@@ -50,20 +52,27 @@ const getAllUsers =
             updated_at
          FROM users`;
 
+      const conditions = [];
       const values = [];
 
       if(
          recent === "true"
       ){
+         conditions.push(`created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`);
+      }
 
-         query += `
-            WHERE created_at >=
-            DATE_SUB(
-               NOW(),
-               INTERVAL 7 DAY
-            )
-         `;
+      if (role && role !== 'all') {
+         conditions.push(`role = ?`);
+         values.push(role);
+      }
 
+      if (search && search.trim() !== '') {
+         conditions.push(`(name LIKE ? OR email LIKE ?)`);
+         values.push(`%${search.trim()}%`, `%${search.trim()}%`);
+      }
+
+      if (conditions.length > 0) {
+         query += ` WHERE ` + conditions.join(' AND ');
       }
 
       query += `
@@ -88,30 +97,40 @@ const getAllUsers =
 };
 
 const getUserCount =
-   async(recent)=>{
+   async(recent, search, role)=>{
 
       let query =
          `SELECT
             COUNT(*) AS total
          FROM users`;
 
+      const conditions = [];
+      const values = [];
+
       if(
          recent === "true"
       ){
+         conditions.push(`created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`);
+      }
 
-         query += `
-            WHERE created_at >=
-            DATE_SUB(
-               NOW(),
-               INTERVAL 7 DAY
-            )
-         `;
+      if (role && role !== 'all') {
+         conditions.push(`role = ?`);
+         values.push(role);
+      }
 
+      if (search && search.trim() !== '') {
+         conditions.push(`(name LIKE ? OR email LIKE ?)`);
+         values.push(`%${search.trim()}%`, `%${search.trim()}%`);
+      }
+
+      if (conditions.length > 0) {
+         query += ` WHERE ` + conditions.join(' AND ');
       }
 
       const [rows] =
          await pool.query(
-            query
+            query,
+            values
          );
 
       return rows[0].total;

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useParams, Link } from 'react-router-dom';
+import BackButton from '../../Components/BackButton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRecruiterJobs } from '../../services/recruiterService';
 import { createAssessment, updateAssessment, getAssessmentByJobId, getAssessment } from '../../services/assessmentService';
+import { generateAssessmentQuestionsAI } from '../../services/aiService';
 
 const CreateAssessmentPage = () => {
   const navigate = useNavigate();
@@ -33,6 +35,15 @@ const CreateAssessmentPage = () => {
 
   const [formError, setFormError] = useState('');
 
+  // AI Question Generator Modal State
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiRole, setAiRole] = useState('');
+  const [aiDifficulty, setAiDifficulty] = useState('Intermediate');
+  const [aiCount, setAiCount] = useState(5);
+  const [aiMode, setAiMode] = useState('replace'); // 'replace' | 'append'
+  const [aiModalError, setAiModalError] = useState('');
+  const [aiSuccessMessage, setAiSuccessMessage] = useState('');
+
   const resetFormToDefaults = () => {
     setTitle('');
     setDescription('');
@@ -51,8 +62,9 @@ const CreateAssessmentPage = () => {
 
   const handleJobChange = (newJobId) => {
     setJobId(newJobId);
-    setEditingAssessmentId('');
-    resetFormToDefaults();
+    if (!editingAssessmentId) {
+      resetFormToDefaults();
+    }
   };
 
   // 1. Fetch recruiter's jobs for dropdown
@@ -105,7 +117,7 @@ const CreateAssessmentPage = () => {
                 ? [...q.options, '', '', '', ''].slice(0, 4)
                 : ['', '', '', ''],
             correct_answer: q.correct_answer || '',
-            points: q.points || 10,
+            points: q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
           }))
         );
       }
@@ -129,6 +141,83 @@ const CreateAssessmentPage = () => {
       setFormError(err?.response?.data?.message || err?.message || 'Failed to save assessment.');
     },
   });
+
+  // AI Question Generation Mutation
+  const generateQuestionsMutation = useMutation({
+    mutationFn: generateAssessmentQuestionsAI,
+    onSuccess: (generatedQuestions) => {
+      if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+        setAiModalError('No questions were generated. Please try again with a different title or prompt.');
+        return;
+      }
+
+      const formatted = generatedQuestions.map((q) => {
+        let opts = ['', '', '', ''];
+        if (Array.isArray(q.options) && q.options.length > 0) {
+          opts = [...q.options, '', '', '', ''].slice(0, 4);
+        }
+        return {
+          question_text: q.question_text || '',
+          question_type: q.question_type || 'mcq',
+          options: opts,
+          correct_answer: q.correct_answer || (opts[0] || ''),
+          points: Number(q.points) > 0 ? Number(q.points) : 10,
+        };
+      });
+
+      if (aiMode === 'replace') {
+        setQuestions(formatted);
+      } else {
+        setQuestions((prev) => {
+          const isSingleEmpty =
+            prev.length === 1 &&
+            !prev[0].question_text.trim() &&
+            !prev[0].correct_answer.trim();
+          return isSingleEmpty ? formatted : [...prev, ...formatted];
+        });
+      }
+
+      if (!title.trim() && aiRole.trim()) {
+        setTitle(`${aiRole.trim()} Technical Assessment`);
+      }
+
+      setAiSuccessMessage(`✨ Generated ${formatted.length} questions successfully with Gemini AI!`);
+      setIsAiModalOpen(false);
+      setAiModalError('');
+    },
+    onError: (err) => {
+      setAiModalError(err?.response?.data?.message || err?.message || 'Failed to generate questions with AI.');
+    },
+  });
+
+  const handleOpenAiModal = () => {
+    if (!aiRole.trim()) {
+      if (title.trim()) {
+        setAiRole(title.trim().replace(/\s*(Technical Screen|Assessment|Quiz)$/i, ''));
+      } else if (jobId) {
+        const matchingJob = jobs.find((j) => String(j.id) === String(jobId));
+        if (matchingJob) {
+          setAiRole(matchingJob.title);
+        }
+      }
+    }
+    setAiModalError('');
+    setIsAiModalOpen(true);
+  };
+
+  const handleAiSubmit = (e) => {
+    e.preventDefault();
+    if (!aiRole.trim()) {
+      setAiModalError('Please enter a role or topic.');
+      return;
+    }
+    setAiModalError('');
+    generateQuestionsMutation.mutate({
+      roleTitle: aiRole.trim(),
+      difficulty: aiDifficulty,
+      count: aiCount,
+    });
+  };
 
   // Question manipulation handlers
   const handleAddQuestion = () => {
@@ -168,7 +257,8 @@ const CreateAssessmentPage = () => {
       options[optIndex] = value;
 
       let correctAnswer = updated[qIndex].correct_answer;
-      if (correctAnswer === oldVal) {
+      // Only track rename if oldVal was non-empty and previously selected
+      if (oldVal && correctAnswer === oldVal) {
         correctAnswer = value;
       }
 
@@ -201,12 +291,13 @@ const CreateAssessmentPage = () => {
         setFormError(`Question #${i + 1} text is empty.`);
         return;
       }
-      const filledOptions = q.options.filter((opt) => opt.trim() !== '');
-      if (filledOptions.length < 2) {
+      const isMcq = (q.question_type || 'mcq') === 'mcq';
+      const filledOptions = (q.options || []).map((opt) => opt.trim()).filter(Boolean);
+      if (isMcq && filledOptions.length < 2) {
         setFormError(`Question #${i + 1} must have at least 2 options.`);
         return;
       }
-      if (!q.correct_answer.trim()) {
+      if (isMcq && !q.correct_answer.trim()) {
         setFormError(`Please select the correct answer for Question #${i + 1}.`);
         return;
       }
@@ -217,13 +308,16 @@ const CreateAssessmentPage = () => {
       description: description.trim(),
       job_id: jobId ? Number(jobId) : null,
       time_limit_minutes: Number(timeLimit) || 30,
-      questions: questions.map((q) => ({
-        question_text: q.question_text.trim(),
-        question_type: q.question_type || 'mcq',
-        options: q.options.filter((opt) => opt.trim() !== ''),
-        correct_answer: q.correct_answer.trim(),
-        points: Number(q.points) || 10,
-      })),
+      questions: questions.map((q) => {
+        const trimmedOptions = (q.options || []).map((opt) => opt.trim()).filter(Boolean);
+        return {
+          question_text: q.question_text.trim(),
+          question_type: q.question_type || 'mcq',
+          options: trimmedOptions,
+          correct_answer: q.correct_answer.trim(),
+          points: q.points !== undefined && q.points !== null && !isNaN(Number(q.points)) ? Math.max(0, Number(q.points)) : 10,
+        };
+      }),
     };
 
     saveMutation.mutate(payload);
@@ -232,9 +326,7 @@ const CreateAssessmentPage = () => {
   return (
     <div style={styles.pageContainer}>
       <div style={styles.header}>
-        <Link to="/recruiter/dashboard" style={styles.backLink}>
-          ← Back to Recruiter Dashboard
-        </Link>
+        <BackButton to="/recruiter/dashboard" label="Back to My Postings" />
         <h1 style={styles.heading}>
           {isEditMode ? '✏️ Edit Assessment' : '📝 Create New Assessment'}
         </h1>
@@ -317,11 +409,33 @@ const CreateAssessmentPage = () => {
 
         {/* Questions Section */}
         <div style={styles.card}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          {aiSuccessMessage && (
+            <div style={styles.successBanner}>
+              <span>{aiSuccessMessage}</span>
+              <button
+                type="button"
+                onClick={() => setAiSuccessMessage('')}
+                style={styles.bannerCloseBtn}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '12px' }}>
             <h2 style={styles.cardTitle}>2. Questions ({questions.length})</h2>
-            <button type="button" onClick={handleAddQuestion} style={styles.addBtn}>
-              + Add Question
-            </button>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleOpenAiModal}
+                style={styles.aiGenBtn}
+              >
+                ✨ Generate with AI
+              </button>
+              <button type="button" onClick={handleAddQuestion} style={styles.addBtn}>
+                + Add Question
+              </button>
+            </div>
           </div>
 
           {questions.map((q, qIdx) => (
@@ -356,7 +470,7 @@ const CreateAssessmentPage = () => {
                 <label style={styles.label}>Points *</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   max="100"
                   value={q.points}
                   onChange={(e) => handleQuestionChange(qIdx, 'points', e.target.value)}
@@ -366,31 +480,68 @@ const CreateAssessmentPage = () => {
 
               {/* MCQ Options */}
               <label style={styles.label}>Multiple Choice Options *</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '1.25rem' }}>
                 {q.options.map((optText, optIdx) => {
                   const letter = String.fromCharCode(65 + optIdx);
                   const isChecked = q.correct_answer === optText && optText.trim() !== '';
 
                   return (
-                    <div key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={styles.optLetter}>{letter}.</span>
+                    <div
+                      key={optIdx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: isChecked ? '#f0fdf4' : '#ffffff',
+                        border: `1.5px solid ${isChecked ? '#22c55e' : '#cbd5e1'}`,
+                        borderRadius: '10px',
+                        padding: '6px 10px 6px 12px',
+                        boxShadow: isChecked ? '0 0 0 2px rgba(34, 197, 94, 0.15)' : 'none',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <span style={{ ...styles.optLetter, color: isChecked ? '#16a34a' : '#64748b' }}>{letter}.</span>
                       <input
                         type="text"
                         placeholder={`Option ${letter}`}
                         value={optText}
                         onChange={(e) => handleOptionChange(qIdx, optIdx, e.target.value)}
-                        style={styles.input}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          background: 'transparent',
+                          padding: '6px 4px',
+                          fontSize: '0.92rem',
+                          outline: 'none',
+                          minWidth: '60px',
+                        }}
                       />
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                      <label
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.8rem',
+                          cursor: optText.trim() ? 'pointer' : 'default',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          background: isChecked ? '#16a34a' : '#f1f5f9',
+                          color: isChecked ? '#ffffff' : '#64748b',
+                          fontWeight: '600',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
                         <input
                           type="radio"
                           name={`correct-${qIdx}`}
                           checked={isChecked}
                           onChange={() => handleQuestionChange(qIdx, 'correct_answer', optText)}
+                          disabled={!optText.trim()}
+                          style={{ margin: 0, cursor: 'pointer' }}
                         />
-                        <span style={{ color: isChecked ? '#16a34a' : '#64748b', fontWeight: isChecked ? '700' : '500' }}>
-                          Correct
-                        </span>
+                        <span>{isChecked ? 'Correct' : 'Mark'}</span>
                       </label>
                     </div>
                   );
@@ -433,6 +584,129 @@ const CreateAssessmentPage = () => {
           </button>
         </div>
       </form>
+
+      {/* AI Question Generator Modal */}
+      {isAiModalOpen && (
+        <div style={styles.modalOverlay} onClick={() => !generateQuestionsMutation.isPending && setIsAiModalOpen(false)}>
+          <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.6rem' }}>✨</span>
+                <div>
+                  <h3 style={styles.modalHeading}>AI Assessment Question Generator</h3>
+                  <span style={styles.modalSubheading}>Powered by Google Gemini</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                style={styles.modalCloseBtn}
+                disabled={generateQuestionsMutation.isPending}
+              >
+                ✕
+              </button>
+            </div>
+
+            {aiModalError && (
+              <div style={styles.modalErrorBox}>
+                <span>⚠️ {aiModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAiSubmit}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Job Role / Topic / Tech Stack *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Senior React Developer, Node.js Backend, DevOps..."
+                  value={aiRole}
+                  onChange={(e) => setAiRole(e.target.value)}
+                  style={styles.input}
+                  disabled={generateQuestionsMutation.isPending}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.25rem' }}>
+                <div>
+                  <label style={styles.label}>Difficulty Level</label>
+                  <select
+                    value={aiDifficulty}
+                    onChange={(e) => setAiDifficulty(e.target.value)}
+                    style={styles.input}
+                    disabled={generateQuestionsMutation.isPending}
+                  >
+                    <option value="Beginner">Beginner (Junior)</option>
+                    <option value="Intermediate">Intermediate (Mid-level)</option>
+                    <option value="Advanced">Advanced (Senior / Lead)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={styles.label}>Question Count</label>
+                  <select
+                    value={aiCount}
+                    onChange={(e) => setAiCount(Number(e.target.value))}
+                    style={styles.input}
+                    disabled={generateQuestionsMutation.isPending}
+                  >
+                    <option value={3}>3 Questions</option>
+                    <option value={5}>5 Questions</option>
+                    <option value={8}>8 Questions</option>
+                    <option value={10}>10 Questions</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={styles.label}>Action Mode</label>
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: '#334155' }}>
+                    <input
+                      type="radio"
+                      name="aiMode"
+                      value="replace"
+                      checked={aiMode === 'replace'}
+                      onChange={() => setAiMode('replace')}
+                      disabled={generateQuestionsMutation.isPending}
+                    />
+                    Replace existing questions
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.9rem', color: '#334155' }}>
+                    <input
+                      type="radio"
+                      name="aiMode"
+                      value="append"
+                      checked={aiMode === 'append'}
+                      onChange={() => setAiMode('append')}
+                      disabled={generateQuestionsMutation.isPending}
+                    />
+                    Append to existing questions
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(false)}
+                  style={styles.modalCancelBtn}
+                  disabled={generateQuestionsMutation.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={styles.modalSubmitBtn}
+                  disabled={generateQuestionsMutation.isPending}
+                >
+                  {generateQuestionsMutation.isPending ? '✨ Generating with Gemini...' : '✨ Generate Questions'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -447,20 +721,14 @@ const styles = {
   header: {
     marginBottom: '2rem',
   },
-  backLink: {
-    color: '#6366f1',
-    textDecoration: 'none',
-    fontWeight: '600',
-    fontSize: '0.9rem',
-  },
   heading: {
     fontSize: '1.85rem',
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#f1f5f9',   // light text — page sits on the dark app background
     margin: '8px 0 4px',
   },
   subheading: {
-    color: '#64748b',
+    color: '#94a3b8',
     margin: 0,
     fontSize: '1rem',
   },
@@ -509,12 +777,17 @@ const styles = {
   addBtn: {
     background: '#e0e7ff',
     color: '#4338ca',
-    border: 'none',
-    padding: '8px 16px',
+    border: '1px solid #c7d2fe',
+    height: '38px',
+    padding: '0 16px',
     borderRadius: '8px',
     fontWeight: '700',
     cursor: 'pointer',
     fontSize: '0.85rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'all 0.15s ease',
   },
   questionBox: {
     background: '#f8fafc',
@@ -562,6 +835,125 @@ const styles = {
     cursor: 'pointer',
     fontSize: '1rem',
     boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+  },
+  aiGenBtn: {
+    background: 'linear-gradient(135deg, #4f46e5, #9333ea)',
+    color: '#ffffff',
+    border: 'none',
+    height: '38px',
+    padding: '0 16px',
+    borderRadius: '8px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)',
+    transition: 'all 0.2s ease',
+  },
+  successBanner: {
+    background: '#ecfdf5',
+    border: '1px solid #a7f3d0',
+    color: '#065f46',
+    borderRadius: '10px',
+    padding: '0.85rem 1.25rem',
+    marginBottom: '1.25rem',
+    fontWeight: '600',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bannerCloseBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#065f46',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backdropFilter: 'blur(4px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    padding: '1rem',
+  },
+  modalBox: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '520px',
+    padding: '2rem',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '1.5rem',
+  },
+  modalHeading: {
+    margin: 0,
+    fontSize: '1.25rem',
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  modalSubheading: {
+    fontSize: '0.8rem',
+    color: '#6366f1',
+    fontWeight: '600',
+  },
+  modalCloseBtn: {
+    background: '#f1f5f9',
+    border: 'none',
+    borderRadius: '8px',
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#64748b',
+    fontWeight: '700',
+  },
+  modalErrorBox: {
+    background: '#fef2f2',
+    border: '1px solid #fecaca',
+    color: '#dc2626',
+    borderRadius: '8px',
+    padding: '0.75rem 1rem',
+    marginBottom: '1.25rem',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+  },
+  modalCancelBtn: {
+    padding: '0.65rem 1.25rem',
+    background: '#f1f5f9',
+    color: '#475569',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: '600',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+  },
+  modalSubmitBtn: {
+    padding: '0.65rem 1.5rem',
+    background: 'linear-gradient(135deg, #4f46e5, #9333ea)',
+    color: '#ffffff',
+    borderRadius: '8px',
+    border: 'none',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)',
   },
 };
 

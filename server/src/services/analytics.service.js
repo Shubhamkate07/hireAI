@@ -19,6 +19,7 @@
 const analyticsModel = require('../models/analytics.model');
 const redis          = require('../config/redis');
 const config         = require('../config/env.config');
+const logger         = require('../utils/logger');
 
 const CACHE_TTL_SECONDS      = 300; // 5 minutes — analytics summary & hiring speed
 const LEADERBOARD_TTL_SECONDS = 120; // 2 minutes — leaderboard changes with every new attempt
@@ -30,25 +31,21 @@ const getRecruiterSummary = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (config.isDev) {
-                console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
-            }
+            logger.debug(`Analytics Cache HIT: ${cacheKey}`);
             return JSON.parse(cached);
         }
     } catch (err) {
-        console.error('Redis read error in getRecruiterSummary:', err.message);
+        logger.warn(`Redis read error in getRecruiterSummary: ${err.message}`);
     }
 
-    if (config.isDev) {
-        console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
-    }
+    logger.debug(`Analytics Cache MISS — querying DB: ${cacheKey}`);
 
     const summary = await analyticsModel.getRecruiterJobsSummary(recruiterId);
 
     try {
         await redis.set(cacheKey, JSON.stringify(summary), 'EX', CACHE_TTL_SECONDS);
     } catch (err) {
-        console.error('Redis write error in getRecruiterSummary:', err.message);
+        logger.warn(`Redis write error in getRecruiterSummary: ${err.message}`);
     }
 
     return summary;
@@ -61,25 +58,21 @@ const getRecruiterJobApplications = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (config.isDev) {
-                console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
-            }
+            logger.debug(`Analytics Cache HIT: ${cacheKey}`);
             return JSON.parse(cached);
         }
     } catch (err) {
-        console.error('Redis read error in getRecruiterJobApplications:', err.message);
+        logger.warn(`Redis read error in getRecruiterJobApplications: ${err.message}`);
     }
 
-    if (config.isDev) {
-        console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
-    }
+    logger.debug(`Analytics Cache MISS — querying DB: ${cacheKey}`);
 
     const applicationsBreakdown = await analyticsModel.getRecruiterApplicationsPerJob(recruiterId);
 
     try {
         await redis.set(cacheKey, JSON.stringify(applicationsBreakdown), 'EX', CACHE_TTL_SECONDS);
     } catch (err) {
-        console.error('Redis write error in getRecruiterJobApplications:', err.message);
+        logger.warn(`Redis write error in getRecruiterJobApplications: ${err.message}`);
     }
 
     return applicationsBreakdown;
@@ -92,25 +85,21 @@ const getPlatformStats = async () => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (config.isDev) {
-                console.log(`⚡ Analytics Cache HIT: ${cacheKey}`);
-            }
+            logger.debug(`Analytics Cache HIT: ${cacheKey}`);
             return JSON.parse(cached);
         }
     } catch (err) {
-        console.error('Redis read error in getPlatformStats:', err.message);
+        logger.warn(`Redis read error in getPlatformStats: ${err.message}`);
     }
 
-    if (config.isDev) {
-        console.log(`🔍 Analytics Cache MISS — querying DB: ${cacheKey}`);
-    }
+    logger.debug(`Analytics Cache MISS — querying DB: ${cacheKey}`);
 
     const stats = await analyticsModel.getPlatformStats();
 
     try {
         await redis.set(cacheKey, JSON.stringify(stats), 'EX', CACHE_TTL_SECONDS);
     } catch (err) {
-        console.error('Redis write error in getPlatformStats:', err.message);
+        logger.warn(`Redis write error in getPlatformStats: ${err.message}`);
     }
 
     return stats;
@@ -132,25 +121,21 @@ const getAssessmentLeaderboard = async (assessmentId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (config.isDev) {
-                console.log(`⚡ Leaderboard Cache HIT: ${cacheKey}`);
-            }
+            logger.debug(`Leaderboard Cache HIT: ${cacheKey}`);
             return JSON.parse(cached);
         }
     } catch (err) {
-        console.error('Redis read error in getAssessmentLeaderboard:', err.message);
+        logger.warn(`Redis read error in getAssessmentLeaderboard: ${err.message}`);
     }
 
-    if (config.isDev) {
-        console.log(`🔍 Leaderboard Cache MISS — querying DB: ${cacheKey}`);
-    }
+    logger.debug(`Leaderboard Cache MISS — querying DB: ${cacheKey}`);
 
     const leaderboard = await analyticsModel.getAssessmentLeaderboard(assessmentId);
 
     try {
         await redis.set(cacheKey, JSON.stringify(leaderboard), 'EX', LEADERBOARD_TTL_SECONDS);
     } catch (err) {
-        console.error('Redis write error in getAssessmentLeaderboard:', err.message);
+        logger.warn(`Redis write error in getAssessmentLeaderboard: ${err.message}`);
     }
 
     return leaderboard;
@@ -165,25 +150,21 @@ const getHiringSpeed = async (recruiterId) => {
     try {
         const cached = await redis.get(cacheKey);
         if (cached) {
-            if (config.isDev) {
-                console.log(`⚡ Hiring Speed Cache HIT: ${cacheKey}`);
-            }
+            logger.debug(`Hiring Speed Cache HIT: ${cacheKey}`);
             return JSON.parse(cached);
         }
     } catch (err) {
-        console.error('Redis read error in getHiringSpeed:', err.message);
+        logger.warn(`Redis read error in getHiringSpeed: ${err.message}`);
     }
 
-    if (config.isDev) {
-        console.log(`🔍 Hiring Speed Cache MISS — querying DB: ${cacheKey}`);
-    }
+    logger.debug(`Hiring Speed Cache MISS — querying DB: ${cacheKey}`);
 
     const hiringSpeed = await analyticsModel.getHiringSpeed(recruiterId);
 
     try {
         await redis.set(cacheKey, JSON.stringify(hiringSpeed), 'EX', CACHE_TTL_SECONDS);
     } catch (err) {
-        console.error('Redis write error in getHiringSpeed:', err.message);
+        logger.warn(`Redis write error in getHiringSpeed: ${err.message}`);
     }
 
     return hiringSpeed;

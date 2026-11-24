@@ -1,15 +1,9 @@
 const ApiError =
  require("../utils/ApiError");
 
-const rbacMiddleware =
- (allowedRoles)=>{
-
-   return (
-      req,
-      res,
-      next
-   )=>{
-
+const rbacMiddleware = (allowedRoles)=>{ 
+   return ( req, res, next )=>{
+      
       if(
          !allowedRoles.includes(
             req.user.role

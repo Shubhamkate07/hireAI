@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS questions (
   question_text TEXT NOT NULL,
   question_type ENUM('mcq','coding','text') DEFAULT 'mcq',
   options JSON DEFAULT NULL,
-  correct_answer VARCHAR(255) DEFAULT NULL,
+  correct_answer TEXT DEFAULT NULL,
   points INT DEFAULT '10',
   PRIMARY KEY (id),
   KEY assessment_id (assessment_id),
@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS assessment_attempts (
   started_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   submitted_at TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_attempt (assessment_id, candidate_id),
   KEY assessment_id (assessment_id),
   KEY candidate_id (candidate_id),
   CONSTRAINT assessment_attempts_ibfk_1 FOREIGN KEY (assessment_id) REFERENCES assessments (id) ON DELETE CASCADE,
@@ -126,6 +127,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY user_id (user_id),
+  UNIQUE KEY uq_token_hash (token_hash),
+  KEY idx_expires_at (expires_at),
   CONSTRAINT refresh_tokens_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import { getActivityLog } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminActivityPage = () => {
     const [typeFilter, setTypeFilter] = useState('all');
@@ -28,10 +28,11 @@ const AdminActivityPage = () => {
     };
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin" className="admin-back-link">← Back to Admin Overview</Link>
+                    <BackButton to="/admin" label="Back to Admin Overview" />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -134,6 +135,7 @@ const AdminActivityPage = () => {
                         </table>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );

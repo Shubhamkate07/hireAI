@@ -1,6 +1,5 @@
-// Imported lazily to avoid circular dependency at module load time
-// store → authSlice → authService → api → authEvent → store  would be circular
-// So we use a lazy getter instead of a top-level import.
+// Centralized auth event dispatcher
+// Eliminates circular dependency between store, authSlice, authService, and api
 
 let _store = null;
 
@@ -10,9 +9,7 @@ export const injectStore = (store) => {
 
 export const triggerLogout = () => {
     if (_store) {
-        // Import clearUser lazily to avoid circular imports
-        import('../store/slices/authSlice').then(({ clearUser }) => {
-            _store.dispatch(clearUser());
-        });
+        // Dispatch clearUser action directly without importing authSlice
+        _store.dispatch({ type: 'auth/clearUser' });
     }
 };

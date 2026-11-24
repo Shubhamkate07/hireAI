@@ -20,6 +20,22 @@ const updateUserRole = async (targetUserId, role, currentAdminId) => {
     throw new ApiError(404, 'User not found');
   }
 
+  // Prevent demoting self without checks
+  if (Number(targetUserId) === Number(currentAdminId) && role !== 'admin') {
+    throw new ApiError(400, 'You cannot demote your own admin account.');
+  }
+
+  // If demoting an admin, ensure at least one active admin remains
+  if (user.role === 'admin' && role !== 'admin') {
+    const pool = require('../config/database');
+    const [adminRows] = await pool.query(
+      `SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`
+    );
+    if (adminRows[0]?.count <= 1) {
+      throw new ApiError(400, 'Cannot demote the last remaining active admin on the platform.');
+    }
+  }
+
   await adminModel.updateUserRole(targetUserId, role);
   return { id: targetUserId, role };
 };

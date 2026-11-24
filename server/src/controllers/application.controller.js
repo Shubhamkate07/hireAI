@@ -66,8 +66,33 @@ const getMyApplications = async (req, res, next) => {
 
 };
 
+// ─── GET /api/applications/:id/resume ─────────────────────────────────────────
+const downloadResume = async (req, res, next) => {
+    try {
+        const path = require('path');
+        const fs = require('fs');
+        const ApiError = require('../utils/ApiError');
+
+        const resumePath = await applicationService.getResumeFile(
+            req.params.id,
+            req.user.id,
+            req.user.role
+        );
+
+        const resolvedPath = path.resolve(process.cwd(), resumePath);
+        if (!fs.existsSync(resolvedPath)) {
+            throw new ApiError(404, 'Resume file not found on disk');
+        }
+
+        return res.sendFile(resolvedPath);
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     applyToJob,
     getApplicationsForJob,
     getMyApplications,
+    downloadResume,
 };

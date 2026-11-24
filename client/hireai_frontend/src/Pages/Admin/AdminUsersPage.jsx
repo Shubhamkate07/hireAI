@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
 import { getAdminUsers, updateUserRole, updateUserStatus, bulkDeactivateUsers } from '../../services/adminService';
 import './AdminDashboard.css';
+import BackButton from '../../Components/BackButton';
 
 const AdminUsersPage = () => {
     const queryClient = useQueryClient();
@@ -25,8 +25,8 @@ const AdminUsersPage = () => {
         isError,
         error,
     } = useInfiniteQuery({
-        queryKey: ['admin', 'users'],
-        queryFn: getAdminUsers,
+        queryKey: ['admin', 'users', searchTerm, roleFilter],
+        queryFn: ({ pageParam = 1 }) => getAdminUsers({ pageParam, search: searchTerm, role: roleFilter }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) =>
             lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
@@ -82,14 +82,8 @@ const AdminUsersPage = () => {
         },
     });
 
-    // Filter users locally for search term and role dropdown
-    const filteredUsers = allUsers.filter((u) => {
-        const matchesSearch =
-            u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            u.email.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-        return matchesSearch && matchesRole;
-    });
+    // Users are filtered server-side across all database records
+    const filteredUsers = allUsers;
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -109,10 +103,11 @@ const AdminUsersPage = () => {
     };
 
     return (
-        <div className="admin-page-container">
+        <div className="admin-shell">
+            <div className="admin-page-container">
             <div className="admin-header-banner">
                 <div className="admin-breadcrumb">
-                    <Link to="/admin" className="admin-back-link">← Back to Admin Overview</Link>
+                    <BackButton to="/admin" label="Back to Admin Overview" />
                 </div>
                 <h1 className="admin-page-title">👥 User Management</h1>
                 <p className="admin-page-subtitle">View, manage roles, and control account statuses across all registered users.</p>
@@ -298,6 +293,7 @@ const AdminUsersPage = () => {
                         )}
                     </>
                 )}
+            </div>
             </div>
         </div>
     );

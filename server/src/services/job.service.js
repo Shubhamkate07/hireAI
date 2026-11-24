@@ -30,6 +30,7 @@ const jobModel = require('../models/job.model');
 const ApiError = require('../utils/ApiError');
 const redis    = require('../config/redis');
 const config   = require('../config/env.config');
+const logger   = require('../utils/logger');
 
 // ─── Cache key prefix ────────────────────────────────────────────────────────
 // All job list cache entries start with 'jobs:list:'.
@@ -54,12 +55,14 @@ const CACHE_TTL    = 60; // seconds — how long a cache entry lives
  *   Use KEYS in dev/learning, SCAN in production.
  */
 const invalidateJobsCache = async () => {
-    const keys = await redis.keys(`${CACHE_PREFIX}*`);
-    if (keys.length > 0) {
-        await redis.del(...keys);
-        if (config.isDev) {
-            console.log(`🗑️  Cache invalidated: deleted ${keys.length} key(s)`);
+    try {
+        const keys = await redis.keys(`${CACHE_PREFIX}*`);
+        if (keys && keys.length > 0) {
+            await redis.del(...keys);
+            logger.info(`🗑️ Cache invalidated: deleted ${keys.length} key(s)`);
         }
+    } catch (err) {
+        logger.warn(`Redis error in invalidateJobsCache: ${err.message}`);
     }
 };
 
@@ -110,30 +113,39 @@ const findJobs = async (
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
     const offset   = (pageNum - 1) * limitNum;
 
-    const filters = { status, job_type, location, search };
+    // Security fix: Draft jobs must NEVER be publicly visible on the platform.
+    // If no status is specified, default to 'open'. If 'draft' is queried, clamp to 'open'.
+    const effectiveStatus = (status && status !== 'draft') ? status : 'open';
+    const filters = { status: effectiveStatus, job_type, location, search };
 
     // ── STEP 1: Build a unique cache key for this exact request ──────────────
     // Every unique combination of filters/page/limit gets its own cache entry.
     // Example: 'jobs:list:{"filters":{"status":"open"},"pageNum":1,"limitNum":10}'
     const cacheKey = `${CACHE_PREFIX}${JSON.stringify({ filters, pageNum, limitNum })}`;
 
-    // ── STEP 2: Check the cache first ────────────────────────────────────────
-    const cached = await redis.get(cacheKey);
+    // ── STEP 2: Check the cache first (graceful fallback if Redis is down) ─
+    let cached = null;
+    try {
+        cached = await redis.get(cacheKey);
+    } catch (err) {
+        logger.warn(`Redis get error: ${err.message}`);
+    }
+
     if (cached) {
         // CACHE HIT — return immediately, no DB query needed
-        if (config.isDev) {
-            console.log(`⚡ Cache HIT for key: ${cacheKey}`);
+        logger.debug(`⚡ Cache HIT for key: ${cacheKey}`);
+        try {
+            return JSON.parse(cached);
+        } catch (e) {
+            // Ignore parse failure and fall through
         }
-        return JSON.parse(cached);
     }
 
     // ── STEP 3: Cache miss — query the database ───────────────────────────────
-    if (config.isDev) {
-        console.log(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
-    }
+    logger.debug(`🔍 Cache MISS — querying database for key: ${cacheKey}`);
     const [jobs, total] = await Promise.all([
         jobModel.findAllJobs(offset, limitNum, filters),
-        jobModel.getJobCount(status, job_type, location, search),
+        jobModel.getJobCount(effectiveStatus, job_type, location, search),
     ]);
 
     const result = {
@@ -147,11 +159,11 @@ const findJobs = async (
     };
 
     // ── STEP 4: Store result in Redis with a 60-second TTL ───────────────────
-    // 'EX' means "expire after X seconds". After 60s, Redis auto-deletes this
-    // key even if we forget to invalidate — a safety net against stale data.
-    await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
-    if (config.isDev) {
-        console.log(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
+    try {
+        await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
+        logger.debug(`💾 Cache SET for key: ${cacheKey} (TTL: ${CACHE_TTL}s)`);
+    } catch (err) {
+        logger.warn(`Redis set error: ${err.message}`);
     }
 
     return result;

@@ -67,12 +67,22 @@ router.get(
 );
 
 
+// ─── POST /api/assessments/:id/start ─────────────────────────────────────────
+// Starts assessment attempt — records server-side start time.
+router.post(
+    '/:id/start',
+    authMiddleware,
+    rbacMiddleware(['candidate', 'recruiter', 'admin']),
+    assessmentController.startAssessment
+);
+
+
 // ─── POST /api/assessments/:id/submit ────────────────────────────────────────
-// Only candidates can submit answers.
+// Submits answers and calculates score.
 router.post(
     '/:id/submit',
     authMiddleware,
-    rbacMiddleware(['candidate']),
+    rbacMiddleware(['candidate', 'recruiter', 'admin']),
     assessmentController.submitAssessment
 );
 

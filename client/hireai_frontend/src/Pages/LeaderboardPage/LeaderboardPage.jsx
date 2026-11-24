@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { getAssessmentLeaderboard } from '../../services/analyticsService';
+import { openAuthedEventSource } from '../../services/authedEventSource';
 
 const LeaderboardPage = () => {
   const { assessmentId } = useParams();
@@ -27,33 +28,27 @@ const LeaderboardPage = () => {
   useEffect(() => {
     if (!assessmentId) return;
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const apiUrl = import.meta.env.VITE_API_URL || '/api';
     const sseUrl = `${apiUrl}/sse/connect?assessmentId=${assessmentId}`;
 
-    const eventSource = new EventSource(sseUrl, { withCredentials: true });
-
-    eventSource.onopen = () => {
-      setIsSseLive(true);
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === 'leaderboard_updated' && Number(payload.assessmentId) === Number(assessmentId)) {
-          console.log('⚡ Live SSE Leaderboard Update received!', payload);
-          refetch();
+    // Reconnects with a refreshed token if the server rejects us with 401
+    const close = openAuthedEventSource(sseUrl, {
+      onOpen: () => setIsSseLive(true),
+      onMessage: (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'leaderboard_updated' && Number(payload.assessmentId) === Number(assessmentId)) {
+            refetch();
+          }
+        } catch (err) {
+          console.error('[SSE Leaderboard] Error parsing event:', err);
         }
-      } catch (err) {
-        console.error('[SSE Leaderboard] Error parsing event:', err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      setIsSseLive(false);
-    };
+      },
+      onError: () => setIsSseLive(false),
+    });
 
     return () => {
-      eventSource.close();
+      close();
       setIsSseLive(false);
     };
   }, [assessmentId, refetch]);
@@ -78,9 +73,14 @@ const LeaderboardPage = () => {
       <div style={styles.headerBanner}>
         <div>
           <div style={styles.breadcrumb}>
-            <button onClick={() => navigate(-1)} style={styles.backLinkBtn}>← Back</button>
+            <button
+              onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/jobs'))}
+              style={styles.backLinkBtn}
+            >
+              ← Back
+            </button>
             <span style={{ margin: '0 8px', color: '#94a3b8' }}>/</span>
-            <Link to="/dashboard" style={styles.backLink}>Dashboard</Link>
+            <Link to="/dashboard" style={styles.backLink}>Home</Link>
             <span style={{ margin: '0 8px', color: '#94a3b8' }}>/</span>
             <span style={{ color: '#cbd5e1' }}>Leaderboard</span>
           </div>

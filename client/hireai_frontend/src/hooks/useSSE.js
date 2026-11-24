@@ -37,6 +37,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { openAuthedEventSource } from '../services/authedEventSource';
 
 const useSSE = (url) => {
     // `events` holds all SSE payloads received since mount.
@@ -50,40 +51,32 @@ const useSSE = (url) => {
         // { withCredentials: true } sends cookies with the request.
         // This is required because our /api/sse/connect route is protected
         // by JWT stored in an httpOnly cookie. Without this, auth fails.
-        const eventSource = new EventSource(url, { withCredentials: true });
-
-        // ── Handle incoming events ─────────────────────────────────────────────
-        // onmessage fires for every "data: ..." event from the server.
-        // e.data is a string — we parse it back to the object the server sent.
-        eventSource.onmessage = (e) => {
-            try {
-                const parsed = JSON.parse(e.data);
-                // Prepend to state so latest event is first in the array
-                setEvents((prev) => [parsed, ...prev]);
-            } catch {
-                console.warn('[useSSE] Failed to parse event data:', e.data);
-            }
-        };
-
-        // ── Handle errors ──────────────────────────────────────────────────────
-        // onerror fires on connection failure.
-        // EventSource.CLOSED = 2 means it was intentionally closed.
-        // For other errors (network blip), EventSource retries automatically —
-        // so we DON'T close it here; we let the browser handle retry.
-        eventSource.onerror = (err) => {
-            console.warn('[useSSE] Connection error:', err);
-            // Only close if the browser has already decided to close it
-            if (eventSource.readyState === EventSource.CLOSED) {
-                eventSource.close();
-            }
-        };
+        //
+        // openAuthedEventSource wraps `new EventSource(url, { withCredentials: true })`
+        // and, if the server rejects a reconnect with 401 (expired access token),
+        // refreshes the token and reconnects. See services/authedEventSource.js.
+        const close = openAuthedEventSource(url, {
+            // ── Handle incoming events ─────────────────────────────────────────
+            // onmessage fires for every "data: ..." event from the server.
+            // e.data is a string — we parse it back to the object the server sent.
+            onMessage: (e) => {
+                try {
+                    const parsed = JSON.parse(e.data);
+                    // Prepend to state so latest event is first in the array
+                    setEvents((prev) => [parsed, ...prev]);
+                } catch {
+                    console.warn('[useSSE] Failed to parse event data:', e.data);
+                }
+            },
+            onError: (err) => {
+                console.warn('[useSSE] Connection error:', err);
+            },
+        });
 
         // ── Cleanup: close the stream when the component unmounts ──────────────
         // This is the CRITICAL cleanup. Without it, closing the tab would leave
         // a ghost connection on the server, leaking memory and file descriptors.
-        return () => {
-            eventSource.close();
-        };
+        return close;
 
     }, [url]); // Re-run only if the URL changes
 

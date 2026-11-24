@@ -50,11 +50,21 @@ const getPlatformStats = async (req, res, next) => {
 // Returns top-20 ranked candidates for a given assessment using RANK() OVER.
 const getAssessmentLeaderboard = async (req, res, next) => {
     try {
+        const assessmentModel = require('../models/assessment.model');
+        const assessment = await assessmentModel.findAssessmentById(req.params.assessmentId);
+
         const leaderboard = await analyticsService.getAssessmentLeaderboard(
             req.params.assessmentId
         );
         return res.status(200).json(
-            new ApiResponse(200, leaderboard, 'Assessment leaderboard fetched successfully')
+            new ApiResponse(
+                200,
+                {
+                    assessment_title: assessment ? assessment.title : `Assessment #${req.params.assessmentId}`,
+                    leaderboard,
+                },
+                'Assessment leaderboard fetched successfully'
+            )
         );
     } catch (err) {
         next(err);

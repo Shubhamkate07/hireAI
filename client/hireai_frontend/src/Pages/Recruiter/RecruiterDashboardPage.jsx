@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { getRecruiterJobs, getRecruiterAssessments } from '../../services/recruiterService';
 import api from '../../services/api';
-import NotificationBell from '../../Components/NotificationBell';
 import { logoutUser } from '../../store/slices/authSlice';
+import CreateJobModal from '../../Components/CreateJobModal';
 import './RecruiterDashboardPage.css';
 
 /**
@@ -20,6 +20,7 @@ const RecruiterDashboardPage = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const user = useSelector((state) => state.auth.user);
+    const [showCreateJobModal, setShowCreateJobModal] = useState(false);
 
     // Fetch recruiter's jobs with application count
     const {
@@ -61,25 +62,6 @@ const RecruiterDashboardPage = () => {
 
     return (
         <div className="recruiter-dashboard-page">
-            {/* Top Navigation Bar */}
-            <nav className="recruiter-nav">
-                <div className="nav-brand">
-                    <span className="logo">HireAI</span>
-                    <span className="portal-badge">Recruiter Portal</span>
-                </div>
-                <div className="nav-actions">
-                    <Link to="/dashboard" className="nav-link">Dashboard</Link>
-                    <Link to="/jobs" className="nav-link">Browse Jobs</Link>
-                    <Link to="/recruiter/analytics" className="nav-link" style={{ color: 'var(--color-accent)' }}>📊 Analytics</Link>
-                    <NotificationBell />
-                    <div className="user-profile">
-                        <span className="user-name">{user?.name}</span>
-                        <button id="logout-btn" className="logout-btn" onClick={handleLogout}>
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </nav>
 
             <main className="recruiter-main">
                 {/* Header Banner */}
@@ -88,12 +70,20 @@ const RecruiterDashboardPage = () => {
                         <h1>Recruiter Dashboard</h1>
                         <p>Manage your posted jobs and candidate application pipelines</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowCreateJobModal(true)}
+                            className="primary-btn"
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            ➕ Post New Job
+                        </button>
                         <Link to="/recruiter/assessments/new" className="primary-btn" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                             📝 + Create Assessment
                         </Link>
                         <Link to="/jobs" className="primary-btn">
-                            + View All Listings
+                            💼 Browse All Jobs
                         </Link>
                     </div>
                 </div>
@@ -256,6 +246,13 @@ const RecruiterDashboardPage = () => {
                     )}
                 </section>
             </main>
+
+            {/* Post Job Modal with Gemini AI Generator */}
+            <CreateJobModal
+                isOpen={showCreateJobModal}
+                onClose={() => setShowCreateJobModal(false)}
+                defaultCompany={user?.company || ''}
+            />
         </div>
     );
 };

@@ -28,6 +28,7 @@ const findApplicationsByJob = async (jobId) => {
             applications.status,
             applications.applied_at,
             applications.resume_path,
+            applications.notes,
             users.id                 AS candidate_id,
             users.name               AS candidate_name,
             users.email              AS candidate_email
@@ -87,10 +88,17 @@ const findById = async (applicationId) => {
 // The notes column is added via: ALTER TABLE applications ADD COLUMN notes TEXT NULL
 const updateApplicationStatus = async (applicationId, status, notes = null) => {
 
-    await pool.query(
-        `UPDATE applications SET status = ?, notes = ? WHERE id = ?`,
-        [status, notes, applicationId]
-    );
+    if (notes !== null && notes !== undefined && notes !== '') {
+        await pool.query(
+            `UPDATE applications SET status = ?, notes = ? WHERE id = ?`,
+            [status, notes, applicationId]
+        );
+    } else {
+        await pool.query(
+            `UPDATE applications SET status = ? WHERE id = ?`,
+            [status, applicationId]
+        );
+    }
 
     // Return the updated row so the caller has the latest data
     const [rows] = await pool.query(

@@ -113,12 +113,24 @@ const getAssessmentFull = async (assessmentId) => {
   };
 };
 
-const updateAssessment = async (assessmentId, { title, description, time_limit_minutes, job_id }) => {
+const updateAssessment = async (assessmentId, fields = {}) => {
+  const allowed = ['title', 'description', 'time_limit_minutes', 'job_id'];
+  const setClauses = [];
+  const values = [];
+
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      setClauses.push(`${key} = ?`);
+      values.push(fields[key] === '' && key === 'job_id' ? null : fields[key]);
+    }
+  }
+
+  if (setClauses.length === 0) return true;
+
+  values.push(assessmentId);
   const [result] = await pool.query(
-    `UPDATE assessments 
-     SET title = ?, description = ?, time_limit_minutes = ?, job_id = ? 
-     WHERE id = ?`,
-    [title, description, time_limit_minutes, job_id || null, assessmentId]
+    `UPDATE assessments SET ${setClauses.join(', ')} WHERE id = ?`,
+    values
   );
   return result.affectedRows > 0;
 };
@@ -134,21 +146,39 @@ const deleteAssessment = async (assessmentId) => {
 // ── Question Management ──────────────────────────────────────────────────────
 const addQuestion = async (assessmentId, { question_text, question_type, options, correct_answer, points }) => {
   const optionsJson = JSON.stringify(options || []);
+  const safePoints = points !== undefined && points !== null && !isNaN(Number(points)) ? Math.max(0, Number(points)) : 10;
   const [result] = await pool.query(
     `INSERT INTO questions (assessment_id, question_text, question_type, options, correct_answer, points)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [assessmentId, question_text, question_type || 'mcq', optionsJson, correct_answer, points || 10]
+    [assessmentId, question_text, question_type || 'mcq', optionsJson, correct_answer, safePoints]
   );
   return result.insertId;
 };
 
-const updateQuestion = async (questionId, { question_text, question_type, options, correct_answer, points }) => {
-  const optionsJson = JSON.stringify(options || []);
+const updateQuestion = async (questionId, fields = {}) => {
+  const allowed = ['question_text', 'question_type', 'options', 'correct_answer', 'points'];
+  const setClauses = [];
+  const values = [];
+
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      setClauses.push(`${key} = ?`);
+      if (key === 'options') {
+        values.push(JSON.stringify(fields[key] || []));
+      } else if (key === 'points') {
+        values.push(fields[key] !== null && !isNaN(Number(fields[key])) ? Math.max(0, Number(fields[key])) : 10);
+      } else {
+        values.push(fields[key]);
+      }
+    }
+  }
+
+  if (setClauses.length === 0) return true;
+
+  values.push(questionId);
   const [result] = await pool.query(
-    `UPDATE questions 
-     SET question_text = ?, question_type = ?, options = ?, correct_answer = ?, points = ? 
-     WHERE id = ?`,
-    [question_text, question_type || 'mcq', optionsJson, correct_answer, points || 10, questionId]
+    `UPDATE questions SET ${setClauses.join(', ')} WHERE id = ?`,
+    values
   );
   return result.affectedRows > 0;
 };

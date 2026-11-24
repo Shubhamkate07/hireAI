@@ -45,9 +45,17 @@ const deleteAllUserTokens = async (
   );
 };
 
+const deleteExpiredTokens = async () => {
+  const [result] = await pool.query(
+    `DELETE FROM refresh_tokens WHERE expires_at < NOW()`
+  );
+  return result.affectedRows;
+};
+
 module.exports = {
   saveRefreshToken,
   findRefreshToken,
   deleteRefreshToken,
   deleteAllUserTokens,
+  deleteExpiredTokens,
 };

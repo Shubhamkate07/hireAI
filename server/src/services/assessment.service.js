@@ -146,7 +146,7 @@ const getAssessment = async (assessmentId, requestorRole, requestorId) => {
             remainingSeconds = totalSeconds;
         }
 
-        const maxScore = (assessment.questions || []).reduce((sum, q) => sum + (Number(q.points) || 10), 0);
+        const maxScore = (assessment.questions || []).reduce((sum, q) => sum + (Number(q.points ?? 10)), 0);
 
         return {
             ...assessment,
@@ -305,7 +305,7 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
         const submitted = (submittedAnswers || []).find(a => a.questionId === question.id);
         const candidateAnswer = (submitted?.answer || '').trim();
         const correctAnswer = (question.correct_answer || '').trim();
-        const maxPoints = Number(question.points) || 10;
+        const maxPoints = Number(question.points ?? 10);
 
         // Guard: A question with no answer key configured must never give free points!
         if (!correctAnswer) {
@@ -332,7 +332,7 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
         }
     }
 
-    const totalPossible = questions.reduce((sum, q) => sum + (Number(q.points) || 10), 0);
+    const totalPossible = questions.reduce((sum, q) => sum + (Number(q.points ?? 10)), 0);
 
     // ── Update the existing attempt row with score and submitted_at (finalizes attempt) ──
     await assessmentModel.updateAttemptWithScore(attempt.id, score, submittedAnswers);

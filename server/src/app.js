@@ -115,6 +115,7 @@ app.use('/api/ai', aiRoutes);
 app.get('/api/health',(req,res)=>{
     res.status(200).json({
         status:"ok",
+        ai: Boolean(process.env.GEMINI_API_KEY),
         timestamp:Date.now()
     })
 });

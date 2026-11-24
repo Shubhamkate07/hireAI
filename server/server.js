@@ -142,7 +142,9 @@ const startWorker = async () => {
 
 // Decide which process should execute which function
 if (cluster.isPrimary) {
-    startPrimary();
+    require("./src/config/migrate")()
+        .catch((err) => console.error("[migrate] skipped:", err.message))
+        .finally(startPrimary);
 } else {
     startWorker();
 }

@@ -420,15 +420,13 @@ const hasCandidateAppliedForJob = async (jobId, candidateId) => {
 // ─── ensureCandidateApplication ───────────────────────────────────────────────
 const ensureCandidateApplication = async (jobId, candidateId) => {
     if (!jobId || !candidateId) return;
-    try {
-        await pool.query(
-            `INSERT INTO applications (job_id, candidate_id, status)
-             VALUES (?, ?, 'applied')
-             ON DUPLICATE KEY UPDATE id=id`,
-            [jobId, candidateId]
-        );
-    } catch {
-        // ignore duplicate or non-fatal errors
+    const [rows] = await pool.query(
+        'SELECT id FROM applications WHERE job_id = ? AND candidate_id = ? LIMIT 1',
+        [jobId, candidateId]
+    );
+    if (rows.length === 0) {
+        const ApiError = require('../utils/ApiError');
+        throw new ApiError(403, 'You must apply to this job before taking its assessment');
     }
 };
 

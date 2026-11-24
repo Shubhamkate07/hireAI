@@ -285,6 +285,12 @@ const submitAssessment = async (assessmentId, candidateId, submittedAnswers) => 
         ? Number(assessment.time_limit_minutes)
         : 30;
 
+    // Server-side deadline: allow a 60s grace for network latency / auto-submit.
+    const elapsedSec = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
+    if (attempt.started_at && elapsedSec > timeLimitMinutes * 60 + 60) {
+        throw new ApiError(403, 'Time limit exceeded for this assessment');
+    }
+
     // ── Fetch questions WITH correct_answer (server-side only) ─────────────────
     const questions = await assessmentModel.findByAssessmentId(assessmentId);
 

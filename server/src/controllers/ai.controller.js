@@ -74,6 +74,9 @@ const screenResume = async (req, res, next) => {
         }
 
         const job = await jobModel.findJobById(application.job_id);
+        if (!job || (req.user.role !== 'admin' && job.posted_by !== req.user.id)) {
+            throw new ApiError(403, 'You can only screen applicants for your own jobs');
+        }
         const candidate = await userModel.findUserById(application.candidate_id);
 
         const screeningResult = await aiService.screenResume({
